@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UFC Betting Odds Dashboard</title>
+<meta name="description" content="Historical UFC betting-odds performance: favorite/underdog win rates, calibration, and naive-strategy ROI.">
+<style>
+  :root{
+    color-scheme: light;
+    --page:        #f4f3ee;
+    --surface:     #ffffff;
+    --surface-2:   #ecebe4;
+    --ink:         #14161c;
+    --ink-2:       #52565f;
+    --ink-muted:   #898781;
+    --line:        rgba(20,22,28,0.11);
+    --line-strong: #c9c8bf;
+    --accent:      #a8681a;
+    --accent-ink:  #6e4611;
+    --accent-soft: rgba(168,104,26,0.13);
+    --series-1:    #2a78d6;   /* favorite / implied */
+    --series-1-soft: rgba(42,120,214,0.14);
+    --series-2:    #d9631f;   /* underdog / actual */
+    --series-2-soft: rgba(217,99,31,0.14);
+    --good:        #0ca30c;
+    --critical:    #d03b3b;
+    --shadow: 0 1px 2px rgba(20,22,28,0.06), 0 8px 24px -12px rgba(20,22,28,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --page:        #0d0e11;
+      --surface:     #16181d;
+      --surface-2:   #1d2027;
+      --ink:         #f2f1ec;
+      --ink-2:       #c3c2b7;
+      --ink-muted:   #8b8d94;
+      --line:        rgba(242,241,236,0.10);
+      --line-strong: #34373f;
+      --accent:      #e3a53f;
+      --accent-ink:  #f4c778;
+      --accent-soft: rgba(227,165,63,0.16);
+      --series-1:    #3987e5;
+      --series-1-soft: rgba(57,135,229,0.18);
+      --series-2:    #e0793a;
+      --series-2-soft: rgba(224,121,58,0.18);
+      --good:        #2fbf3e;
+      --critical:    #e66767;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:        #0d0e11;
+    --surface:     #16181d;
+    --surface-2:   #1d2027;
+    --ink:         #f2f1ec;
+    --ink-2:       #c3c2b7;
+    --ink-muted:   #8b8d94;
+    --line:        rgba(242,241,236,0.10);
+    --line-strong: #34373f;
+    --accent:      #e3a53f;
+    --accent-ink:  #f4c778;
+    --accent-soft: rgba(227,165,63,0.16);
+    --series-1:    #3987e5;
+    --series-1-soft: rgba(57,135,229,0.18);
+    --series-2:    #e0793a;
+    --series-2-soft: rgba(224,121,58,0.18);
+    --good:        #2fbf3e;
+    --critical:    #e66767;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6);
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --page:        #f4f3ee;
+    --surface:     #ffffff;
+    --surface-2:   #ecebe4;
+    --ink:         #14161c;
+    --ink-2:       #52565f;
+    --ink-muted:   #898781;
+    --line:        rgba(20,22,28,0.11);
+    --line-strong: #c9c8bf;
+    --accent:      #a8681a;
+    --accent-ink:  #6e4611;
+    --accent-soft: rgba(168,104,26,0.13);
+    --series-1:    #2a78d6;
+    --series-1-soft: rgba(42,120,214,0.14);
+    --series-2:    #d9631f;
+    --series-2-soft: rgba(217,99,31,0.14);
+    --good:        #0ca30c;
+    --critical:    #d03b3b;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--page);
+    color: var(--ink);
+    font: 400 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono{
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  a{ color: var(--series-1); }
+
+  /* ---------- shell ---------- */
+  .shell{ max-width: 1180px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header.top{
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--surface), var(--page) 180%);
+  }
+  header.top .inner{
+    max-width: 1180px; margin: 0 auto; padding: 28px 20px 22px;
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;
+  }
+  .kicker{
+    text-transform: uppercase; letter-spacing:.11em; font-size:11.5px; font-weight:700;
+    color: var(--accent-ink); margin: 0 0 6px;
+  }
+  h1{
+    font-size: clamp(24px, 3.4vw, 32px); font-weight: 800; letter-spacing: -0.01em;
+    margin: 0; text-wrap: balance;
+  }
+  header.top p.sub{ margin: 6px 0 0; color: var(--ink-2); font-size: 14px; max-width: 56ch; }
+  .source-note{ font-size: 12.5px; color: var(--ink-muted); text-align:right; }
+  .source-note a{ color: var(--ink-muted); text-decoration: underline; }
+
+  h2.section-title{
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-2); margin: 44px 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2.section-title::after{ content:""; flex:1; height:1px; background: var(--line); }
+  p.section-desc{ margin: -8px 0 16px; color: var(--ink-2); font-size: 13.5px; max-width: 72ch; }
+
+  /* ---------- filter bar ---------- */
+  .filterbar{
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+  }
+  .filterbar .inner{
+    max-width: 1180px; margin:0 auto; padding: 12px 20px;
+    display:flex; flex-wrap:wrap; align-items:center; gap: 10px 18px;
+  }
+  .filterbar .grp{ display:flex; align-items:center; gap:8px; }
+  .filterbar label{ font-size: 12px; font-weight:600; color: var(--ink-muted); text-transform:uppercase; letter-spacing:.05em; }
+  select, .yr-input{
+    font: 500 13.5px/1 system-ui, sans-serif;
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 7px 10px; cursor:pointer;
+  }
+  select:focus-visible, .yr-input:focus-visible, button:focus-visible, .tab-btn:focus-visible{
+    outline: 2px solid var(--series-1); outline-offset: 2px;
+  }
+  .yr-input{ width: 68px; cursor:text; }
+  .reset-btn{
+    font: 600 12.5px system-ui, sans-serif; color: var(--ink-2);
+    background: transparent; border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 7px 12px; cursor: pointer;
+  }
+  .reset-btn:hover{ background: var(--surface-2); }
+  .filter-count{ margin-left:auto; font-size:12.5px; color: var(--ink-muted); }
+  .filter-count b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* ---------- KPI tiles ---------- */
+  .kpi-row{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 14px; overflow:hidden;
+    box-shadow: var(--shadow);
+  }
+  .kpi{ background: var(--surface); padding: 16px 18px; }
+  .kpi .lbl{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color: var(--ink-muted); }
+  .kpi .val{ font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums;
+             font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing:-0.01em; }
+  .kpi .val.pos{ color: var(--good); }
+  .kpi .val.neg{ color: var(--critical); }
+  .kpi .foot{ font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; }
+
+  /* ---------- cards / charts ---------- */
+  .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px){ .grid-2{ grid-template-columns: 1fr; } }
+  .card{
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 20px 20px; box-shadow: var(--shadow);
+  }
+  .card h3{ margin: 0 0 2px; font-size: 15px; font-weight:700; }
+  .card .cardnote{ font-size: 12.5px; color: var(--ink-muted); margin: 0 0 12px; }
+  .chart-wrap{ overflow-x:auto; }
+  .chart-wrap svg{ display:block; max-width:100%; height:auto; }
+  .legend{ display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:12.5px; color: var(--ink-2); }
+  .legend .item{ display:flex; align-items:center; gap:6px; }
+  .legend .swatch{ width:14px; height:3px; border-radius:2px; display:inline-block; }
+  .legend .dash{ background-image: linear-gradient(90deg, var(--ink-muted) 0 5px, transparent 5px 9px); background-size: 9px 3px; height:2px; }
+
+  /* tab buttons e.g. table/chart toggle */
+  .tab-btn{
+    font: 600 11.5px system-ui, sans-serif; letter-spacing:.03em;
+    background: transparent; color: var(--ink-muted); border: 1px solid var(--line-strong);
+    border-radius: 6px; padding: 4px 9px; cursor:pointer;
+  }
+  .tab-btn[aria-pressed="true"]{ background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+
+  /* mini data table under charts */
+  table.mini{ width:100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+  table.mini caption{ caption-side: top; text-align:left; font-size:11px; color:var(--ink-muted); padding-bottom:6px; }
+  table.mini th, table.mini td{ text-align:right; padding: 5px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  table.mini th:first-child, table.mini td:first-child{ text-align:left; font-variant-numeric: normal; }
+  table.mini thead th{ color: var(--ink-muted); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:.04em; }
+
+  /* tooltip */
+  .tt{
+    position: fixed; pointer-events:none; z-index: 60;
+    background: var(--ink); color: var(--page);
+    font-size: 12.5px; line-height:1.5; padding: 8px 10px; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35); max-width: 240px;
+    opacity: 0; transform: translateY(2px); transition: opacity .1s ease;
+  }
+  .tt.show{ opacity:1; }
+  .tt .tt-h{ font-weight:700; margin-bottom:3px; }
+  .tt .tt-row{ display:flex; justify-content:space-between; gap:14px; }
+  .tt .tt-row .k{ display:flex; align-items:center; gap:5px; opacity:.85; }
+  .tt .tt-row .k .key-swatch{ width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .tt .tt-row .v{ font-variant-numeric: tabular-nums; font-weight:600; }
+
+  /* ---------- table section ---------- */
+  .tablecard{ margin-top: 20px; }
+  .table-scroll{ overflow-x:auto; border: 1px solid var(--line); border-radius: 12px; }
+  table.fights{ width:100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  table.fights thead th{
+    position: sticky; top:0; background: var(--surface-2); text-align:left; padding: 9px 12px;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-muted);
+    border-bottom: 1px solid var(--line-strong); white-space:nowrap;
+  }
+  table.fights tbody td{ padding: 8px 12px; border-bottom: 1px solid var(--line); white-space:nowrap; }
+  table.fights tbody tr:hover{ background: var(--surface-2); }
+  table.fights td.num{ font-variant-numeric: tabular-nums; text-align:right; }
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+    padding: 2px 7px; border-radius: 999px;
+  }
+  .pill.fav{ background: var(--series-1-soft); color: var(--series-1); }
+  .pill.dog{ background: var(--series-2-soft); color: var(--series-2); }
+  .fighter-name.winner{ font-weight:700; }
+  .fighter-name.winner::after{ content: " ✓"; color: var(--good); font-weight:700; }
+
+  .pager{ display:flex; align-items:center; justify-content:center; gap:14px; padding: 12px 0 4px; font-size: 13px; color: var(--ink-2); }
+  .pager button{
+    font: 600 13px system-ui, sans-serif; background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 7px; padding: 6px 12px; cursor:pointer;
+  }
+  .pager button:disabled{ opacity:.4; cursor:default; }
+
+  footer{ margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 12.5px; }
+  footer ul{ margin: 8px 0 0; padding-left: 18px; }
+  footer li{ margin: 3px 0; }
+
+  .loading, .empty-state{ padding: 40px 0; text-align:center; color: var(--ink-muted); font-size: 13.5px; }
+  .skel{ opacity:.45; filter: saturate(.6); pointer-events:none; }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="kicker">UFC_Data · Historical Odds</p>
+      <h1>Betting Odds Dashboard</h1>
+      <p class="sub">Do favorites win as often as their price implies? What would flat-staking every favorite — or every underdog — have actually returned? Built from UFC fight results joined against historical moneylines.</p>
+    </div>
+    <div class="source-note">Data through <span id="hdr-daterange">–</span><br>
+      <span id="hdr-count">–</span> fights with a matched betting line</div>
+  </div>
+</header>
+
+<nav class="filterbar" aria-label="Filters">
+  <div class="inner">
+    <div class="grp">
+      <label for="f-gender">Division</label>
+      <select id="f-gender">
+        <option value="all">All fighters</option>
+        <option value="M">Men's</option>
+        <option value="W">Women's</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label for="f-wc">Weight class</label>
+      <select id="f-wc"><option value="all">All classes</option></select>
+    </div>
+    <div class="grp">
+      <label for="f-from">From</label>
+      <select id="f-from" class="yr-input"></select>
+    </div>
+    <div class="grp">
+      <label for="f-to">To</label>
+      <select id="f-to" class="yr-input"></select>
+    </div>
+    <button class="reset-btn" id="f-reset" type="button">Reset filters</button>
+    <span class="filter-count"><b id="fc-n">–</b> fights in view</span>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <h2 class="section-title" style="margin-top:28px;">Overview</h2>
+  <div class="kpi-row" id="kpi-row">
+    <div class="loading">Loading fight and odds data…</div>
+  </div>
+
+  <h2 class="section-title">Is the market calibrated?</h2>
+  <p class="section-desc">Every fighter's de-vigged (fair) implied win probability, bucketed in 10-point bands, plotted against how often that band actually won. A well-calibrated market sits on the diagonal.</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Calibration curve</h3>
+      <p class="cardnote">Fair implied probability vs. actual win rate, by decile</p>
+      <div class="chart-wrap" id="chart-calibration"></div>
+      <div class="legend">
+        <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Actual win rate</span>
+        <span class="item"><span class="swatch dash"></span>Perfect calibration (y = x)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Favorites, by price band</h3>
+      <p class="cardnote">"Do &minus;300 favorites really win ~75% of the time?"</p>
+      <div class="chart-wrap" id="chart-oddsbands"></div>
+      <div class="legend">
+        <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Implied probability (fair)</span>
+        <span class="item"><span class="swatch" style="background:var(--series-2)"></span>Actual win rate</span>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Would naive betting have paid off?</h2>
+  <p class="section-desc">Flat $100 stake on every fight in view, always taking the favorite in one line and always taking the underdog in the other. Draws and no-contests are treated as a push (stake returned, $0 profit). This is a backtest against closing-line prices, not a trading recommendation.</p>
+  <div class="card">
+    <h3>Cumulative ROI by year</h3>
+    <p class="cardnote">Running return on a flat $100 stake per fight, favorite vs. underdog strategy</p>
+    <div class="chart-wrap" id="chart-roi"></div>
+    <div class="legend">
+      <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Always bet favorite</span>
+      <span class="item"><span class="swatch" style="background:var(--series-2)"></span>Always bet underdog</span>
+      <span class="item"><span class="swatch dash"></span>Break-even</span>
+    </div>
+  </div>
+
+  <h2 class="section-title">Favorite win rate by weight class</h2>
+  <p class="section-desc">Ignores the weight-class filter above (it scopes everything else) but still respects division and date range, so you can see how favorites perform in classes you aren't currently filtered to.</p>
+  <div class="card">
+    <h3>By weight class</h3>
+    <p class="cardnote">Share of fights the betting favorite won, non-pick'em fights only</p>
+    <div class="chart-wrap" id="chart-weightclass"></div>
+  </div>
+
+  <h2 class="section-title">Fight-by-fight</h2>
+  <p class="section-desc">Every matched fight in the current filter, favorite marked, winner checked.</p>
+  <div class="card tablecard">
+    <div class="table-scroll">
+      <table class="fights" id="fights-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Weight class</th><th>Fighter A</th><th class="num">Odds</th>
+            <th>Fighter B</th><th class="num">Odds</th><th>Method</th>
+          </tr>
+        </thead>
+        <tbody id="fights-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="pg-prev" type="button">&larr; Prev</button>
+      <span id="pg-label">Page 1</span>
+      <button id="pg-next" type="button">Next &rarr;</button>
+    </div>
+  </div>
+
+  <footer>
+    <strong>About this data.</strong> Fight results come from <code>Data/fight_data.csv</code> (8,679 UFC fights, 1994&ndash;2026); betting lines come from <code>Data/moneyline.csv</code>, matched by fighter names and event date. Caveats:
+    <ul>
+      <li>Moneyline coverage only spans <span id="foot-mlrange">–</span> — fights outside that window can't be matched regardless of quality.</li>
+      <li>Within that window, <span id="foot-matchrate">–</span> of fights matched to a moneyline record; the rest had no scraped line, an unresolvable fighter-name mismatch, or fell on an event the odds source didn't cover.</li>
+      <li>The odds source contains duplicate scrapes for some fights (open vs. close line, or repeat listings). Duplicates were averaged; a small number (~2%) of averaged pairs produced impossible American odds (between &minus;100 and +100) and were dropped rather than guessed at.</li>
+      <li>ROI figures use a flat, unrealistic $100-per-fight strategy with no bankroll management, line shopping, or vig comparison across books &mdash; they illustrate market efficiency, not a viable betting system.</li>
+    </ul>
+  </footer>
+</div>
+
+<div class="tt" id="tooltip" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     DATA LOADING
+     Reads docs/data/fights.json + docs/data/summary.json.
+     Falls back to an inline payload if window.__INLINE_DATA__ is
+     set (used only for the standalone preview build of this page).
+     ============================================================ */
+  var DATA_BASE = "data/";
+
+  function loadData(){
+    if (window.__INLINE_DATA__) {
+      return Promise.resolve(window.__INLINE_DATA__);
+    }
+    return Promise.all([
+      fetch(DATA_BASE + "fights.json").then(function(r){
+        if(!r.ok) throw new Error("fights.json " + r.status);
+        return r.json();
+      }),
+      fetch(DATA_BASE + "summary.json").then(function(r){
+        if(!r.ok) throw new Error("summary.json " + r.status);
+        return r.json();
+      })
+    ]).then(function(res){
+      return { fights: res[0], summary: res[1] };
+    });
+  }
+
+  /* ============================================================
+     MATH HELPERS
+     ============================================================ */
+  function impliedProb(odds){
+    return odds < 0 ? (-odds) / (-odds + 100) : 100 / (odds + 100);
+  }
+  function americanProfit(odds, won){
+    if (won === null || won === undefined) return 0;
+    if (!won) return -100;
+    return odds > 0 ? odds : (10000 / Math.abs(odds));
+  }
+  function pct(x, d){ return (x*100).toFixed(d===undefined?1:d) + "%"; }
+  function money(x){
+    var sign = x < 0 ? "-" : "+";
+    return sign + "$" + Math.abs(Math.round(x)).toLocaleString("en-US");
+  }
+  function fmtOdds(o){ return (o > 0 ? "+" : "") + o; }
+
+  /* enrich a raw fight record with derived fields (once, up front) */
+  function enrich(f){
+    var pa = impliedProb(f.oa), pb = impliedProb(f.ob);
+    var over = pa + pb;
+    var paFair = pa/over, pbFair = pb/over;
+    var favSide = f.fav; // 'a' | 'b' | 'pickem'
+    var favOdds = favSide === 'a' ? f.oa : f.ob;
+    var dogOdds = favSide === 'a' ? f.ob : f.oa;
+    var favPFair = favSide === 'a' ? paFair : pbFair;
+    var decisive = (f.w === 'a' || f.w === 'b');
+    var favWon = decisive ? (f.w === favSide) : null;
+    var year = +f.d.slice(0,4);
+    f._paFair = paFair; f._pbFair = pbFair; f._over = over;
+    f._favOdds = favOdds; f._dogOdds = dogOdds; f._favPFair = favPFair;
+    f._decisive = decisive; f._favWon = favWon; f._year = year;
+    return f;
+  }
+
+  /* ============================================================
+     AGGREGATION
+     ============================================================ */
+  function computeStats(list){
+    var n = list.length;
+    var draws = 0, ncs = 0, pickems = 0, decisiveN = 0;
+    var favWins = 0, favDecisions = 0;
+    var obs = []; // [predictedProb, won] for calibration, one per side
+    var bandDefs = [
+      {lo:-100000, hi:-500, label:"≤ -500"},
+      {lo:-500, hi:-300, label:"-499 to -300"},
+      {lo:-300, hi:-250, label:"-299 to -250"},
+      {lo:-250, hi:-200, label:"-249 to -200"},
+      {lo:-200, hi:-175, label:"-199 to -175"},
+      {lo:-175, hi:-150, label:"-174 to -150"},
+      {lo:-150, hi:-135, label:"-149 to -135"},
+      {lo:-135, hi:-120, label:"-134 to -120"},
+      {lo:-120, hi:-100, label:"-119 to -100"}
+    ];
+    bandDefs.forEach(function(b){ b.n=0; b.winSum=0; b.pSum=0; b.oddsSum=0; });
+
+    var favProfit = 0, dogProfit = 0, staked = 0;
+    var yearMap = {}; // year -> {n, favProfit, dogProfit}
+
+    for (var i=0;i<n;i++){
+      var f = list[i];
+      if (f.w === 'D') draws++;
+      else if (f.w === 'N') ncs++;
+
+      if (f._decisive){
+        decisiveN++;
+        obs.push([f._paFair, f.w==='a']);
+        obs.push([f._pbFair, f.w==='b']);
+      }
+
+      if (f.fav === 'pickem') { pickems++; continue; }
+
+      if (f._decisive){
+        favDecisions++;
+        if (f._favWon) favWins++;
+        for (var bi=0; bi<bandDefs.length; bi++){
+          var b = bandDefs[bi];
+          if (f._favOdds > b.lo && f._favOdds <= b.hi){
+            b.n++; b.pSum += f._favPFair; b.oddsSum += f._favOdds;
+            if (f._favWon) b.winSum++;
+            break;
+          }
+        }
+      }
+
+      var fp = americanProfit(f._favOdds, f._favWon);
+      var dp = americanProfit(f._dogOdds, f._favWon===null? null : !f._favWon);
+      favProfit += fp; dogProfit += dp; staked += 100;
+
+      var y = f._year;
+      if (!yearMap[y]) yearMap[y] = {year:y, n:0, favProfit:0, dogProfit:0};
+      yearMap[y].n++; yearMap[y].favProfit += fp; yearMap[y].dogProfit += dp;
+    }
+
+    var bins = [0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1.0];
+    var calib = [];
+    for (var bi2=0; bi2<10; bi2++){
+      var lo=bins[bi2], hi=bins[bi2+1];
+      var cn=0, psum=0, wsum=0;
+      for (var oi=0; oi<obs.length; oi++){
+        var p = obs[oi][0];
+        if ((p>lo || (bi2===0 && p>=lo)) && p<=hi){
+          cn++; psum+=p; if(obs[oi][1]) wsum++;
+        }
+      }
+      calib.push({lo:lo, hi:hi, n:cn, avgPredicted: cn? psum/cn : null, actual: cn? wsum/cn : null});
+    }
+
+    var bands = bandDefs.filter(function(b){ return b.n>0; }).map(function(b){
+      return {
+        label:b.label, n:b.n,
+        avgOdds: b.oddsSum/b.n,
+        implied: b.pSum/b.n,
+        actual: b.winSum/b.n
+      };
+    });
+
+    var years = Object.keys(yearMap).map(function(k){return yearMap[k];}).sort(function(a,b){return a.year-b.year;});
+    var cumFav=0, cumDog=0, cumN=0;
+    years.forEach(function(y){
+      cumFav += y.favProfit; cumDog += y.dogProfit; cumN += y.n;
+      y.favCumRoi = cumN? cumFav/(100*cumN) : 0;
+      y.dogCumRoi = cumN? cumDog/(100*cumN) : 0;
+    });
+
+    return {
+      n:n, decisiveN:decisiveN, draws:draws, ncs:ncs, pickems:pickems,
+      favWinRate: favDecisions? favWins/favDecisions : null,
+      favDecisions: favDecisions,
+      calibration: calib,
+      oddsBands: bands,
+      roi: {
+        favorite: {profit:favProfit, staked:staked, pct: staked? favProfit/staked : 0, n: n-pickems},
+        underdog: {profit:dogProfit, staked:staked, pct: staked? dogProfit/staked : 0, n: n-pickems}
+      },
+      byYear: years,
+      avgOverround: n? list.reduce(function(s,f){return s+f._over;},0)/n : null
+    };
+  }
+
+  function computeWeightClassBreakdown(list){
+    var map = {};
+    list.forEach(function(f){
+      if (f.fav === 'pickem' || !f._decisive) return;
+      if (!map[f.wc]) map[f.wc] = {wc:f.wc, n:0, wins:0};
+      map[f.wc].n++;
+      if (f._favWon) map[f.wc].wins++;
+    });
+    return Object.keys(map).map(function(k){
+      var m = map[k];
+      return {wc:m.wc, n:m.n, rate:m.wins/m.n};
+    }).sort(function(a,b){ return b.n-a.n; });
+  }
+
+  /* ============================================================
+     SVG CHART HELPERS
+     ============================================================ */
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent){
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function css(name){
+    return getComputedStyle(document.body).getPropertyValue(name).trim();
+  }
+
+  var tooltipEl = document.getElementById("tooltip");
+  function showTooltip(x, y, html){
+    tooltipEl.innerHTML = "";
+    html.forEach(function(node){ tooltipEl.appendChild(node); });
+    tooltipEl.classList.add("show");
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var w = 240, h = 90;
+    var left = Math.min(x + 14, vw - w - 10);
+    var top = Math.min(y + 14, vh - h - 10);
+    tooltipEl.style.left = left + "px";
+    tooltipEl.style.top = top + "px";
+  }
+  function hideTooltip(){ tooltipEl.classList.remove("show"); }
+  function ttHeader(text){ var d=document.createElement("div"); d.className="tt-h"; d.textContent=text; return d; }
+  function ttRow(label, value, color){
+    var row=document.createElement("div"); row.className="tt-row";
+    var k=document.createElement("span"); k.className="k";
+    if (color){ var sw=document.createElement("span"); sw.className="key-swatch"; sw.style.background=color; k.appendChild(sw); }
+    var kt=document.createElement("span"); kt.textContent=label; k.appendChild(kt);
+    var v=document.createElement("span"); v.className="v"; v.textContent=value;
+    row.appendChild(k); row.appendChild(v);
+    return row;
+  }
+
+  /* ---- Calibration chart: predicted% (x) vs actual% (y), diagonal reference ---- */
+  function drawCalibration(container, calib){
+    container.innerHTML = "";
+    var totalObs = calib.reduce(function(s,c){return s+c.n;},0);
+    if (!totalObs){ container.innerHTML = '<div class="empty-state">Not enough data in this filter.</div>'; return; }
+    var W = 460, H = 320, M = {t:16,r:18,b:40,l:44};
+    var iw = W-M.l-M.r, ih = H-M.t-M.b;
+    var svg = el("svg", {viewBox:"0 0 "+W+" "+H, width:"100%", role:"img",
+      "aria-label":"Calibration curve comparing predicted probability to actual win rate"}, container);
+
+    var sx = function(p){ return M.l + p*iw; };
+    var sy = function(p){ return M.t + (1-p)*ih; };
+
+    // gridlines + axis ticks at 0,25,50,75,100%
+    [0,.25,.5,.75,1].forEach(function(t){
+      el("line", {x1:sx(0), x2:sx(1), y1:sy(t), y2:sy(t), stroke:css('--line'), "stroke-width":1}, svg);
+      var lab = el("text", {x:M.l-8, y:sy(t)+4, "text-anchor":"end", fill:css('--ink-muted'), "font-size":10.5}, svg);
+      lab.textContent = Math.round(t*100)+"%";
+      var lab2 = el("text", {x:sx(t), y:H-M.b+18, "text-anchor":"middle", fill:css('--ink-muted'), "font-size":10.5}, svg);
+      lab2.textContent = Math.round(t*100)+"%";
+    });
+    el("text", {x:-H/2, y:14, transform:"rotate(-90)", "text-anchor":"middle", fill:css('--ink-muted'), "font-size":11}, svg).textContent = "Actual win rate";
+    el("text", {x:W/2, y:H-6, "text-anchor":"middle", fill:css('--ink-muted'), "font-size":11}, svg).textContent = "Predicted (fair implied) probability";
+
+    // diagonal reference
+    el("line", {x1:sx(0), y1:sy(0), x2:sx(1), y2:sy(1), stroke:css('--ink-muted'), "stroke-width":1.5,
+      "stroke-dasharray":"5 4"}, svg);
+
+    var pts = calib.filter(function(c){ return c.n>0 && c.avgPredicted!==null; });
+    var pathD = pts.map(function(c,i){ return (i===0?"M":"L") + sx(c.avgPredicted).toFixed(2)+" "+sy(c.actual).toFixed(2); }).join(" ");
+    el("path", {d:pathD, fill:"none", stroke:css('--series-1'), "stroke-width":2, "stroke-linejoin":"round"}, svg);
+
+    pts.forEach(function(c){
+      var cx = sx(c.avgPredicted), cy = sy(c.actual);
+      var ring = el("circle", {cx:cx, cy:cy, r:5, fill:css('--series-1'), stroke:css('--surface'), "stroke-width":2}, svg);
+      var hit = el("circle", {cx:cx, cy:cy, r:14, fill:"transparent", style:"cursor:pointer"}, svg);
+      hit.tabIndex = 0;
+      function onEnter(evt){
+        var rect = svg.getBoundingClientRect();
+        var px = (evt.clientX!==undefined? evt.clientX : rect.left+cx*rect.width/W);
+        var py = (evt.clientY!==undefined? evt.clientY : rect.top+cy*rect.height/H);
+        showTooltip(px, py, [
+          ttHeader(Math.round(c.lo*100)+"–"+Math.round(c.hi*100)+"% predicted band"),
+          ttRow("Fights", c.n.toLocaleString(), css('--series-1')),
+          ttRow("Avg. predicted", pct(c.avgPredicted)),
+          ttRow("Actual win rate", pct(c.actual))
+        ]);
+      }
+      hit.addEventListener("pointermove", onEnter);
+      hit.addEventListener("pointerenter", onEnter);
+      hit.addEventListener("focus", onEnter);
+      hit.addEventListener("pointerleave", hideTooltip);
+      hit.addEventListener("blur", hideTooltip);
+    });
+
+    // mini table (accessible data view)
+    var tbl = document.createElement("table"); tbl.className = "mini";
+    tbl.innerHTML = "<caption>Underlying calibration data</caption><thead><tr><th>Predicted band</th><th>n</th><th>Avg. predicted</th><th>Actual</th></tr></thead>";
+    var tb = document.createElement("tbody");
+    pts.forEach(function(c){
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>"+Math.round(c.lo*100)+"–"+Math.round(c.hi*100)+"%</td><td>"+c.n.toLocaleString()+"</td><td>"+pct(c.avgPredicted)+"</td><td>"+pct(c.actual)+"</td>";
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    container.appendChild(tbl);
+  }
+
+  /* ---- Grouped bar: implied vs actual per odds band ---- */
+  function drawOddsBands(container, bands){
+    container.innerHTML = "";
+    if (!bands.length){ container.innerHTML = '<div class="empty-state">Not enough data in this filter.</div>'; return; }
+    var n = bands.length;
+    var barW = 15, groupGap = 26, pairGap = 3;
+    var W = Math.max(460, n*(barW*2+pairGap+groupGap) + 60);
+    var H = 320, M = {t:16,r:16,b:64,l:44};
+    var iw = W-M.l-M.r, ih = H-M.t-M.b;
+    var svg = el("svg", {viewBox:"0 0 "+W+" "+H, width:"100%", role:"img",
+      "aria-label":"Implied probability versus actual win rate by favorite odds band"}, container);
+
+    var sy = function(p){ return M.t + (1-p)*ih; };
+    [0,.25,.5,.75,1].forEach(function(t){
+      el("line", {x1:M.l, x2:W-M.r, y1:sy(t), y2:sy(t), stroke:css('--line'), "stroke-width":1}, svg);
+      var lab = el("text", {x:M.l-8, y:sy(t)+4, "text-anchor":"end", fill:css('--ink-muted'), "font-size":10.5}, svg);
+      lab.textContent = Math.round(t*100)+"%";
+    });
+    el("line", {x1:M.l, x2:W-M.r, y1:sy(0), y2:sy(0), stroke:css('--line-strong'), "stroke-width":1}, svg);
+
+    var groupW = (barW*2+pairGap);
+    var step = iw/n;
+    bands.forEach(function(b, i){
+      var gx = M.l + i*step + (step-groupW)/2;
+      [["implied", b.implied, css('--series-1')], ["actual", b.actual, css('--series-2')]].forEach(function(pair, j){
+        var x = gx + j*(barW+pairGap);
+        var y0 = sy(0), y1 = sy(pair[1]);
+        var h = y0-y1;
+        var rect = el("path", {
+          d: roundedTopBar(x, y1, barW, h, 3),
+          fill: pair[2]
+        }, svg);
+        rect.style.cursor="pointer";
+        rect.tabIndex = 0;
+        (function(b,pair,rect){
+          function onEnter(evt){
+            var r = rect.getBoundingClientRect();
+            showTooltip(r.left+barW/2, r.top, [
+              ttHeader("Favorite odds " + b.label + " (avg " + fmtOdds(Math.round(b.avgOdds)) + ")"),
+              ttRow("Fights", b.n.toLocaleString()),
+              ttRow("Implied probability", pct(b.implied), css('--series-1')),
+              ttRow("Actual win rate", pct(b.actual), css('--series-2'))
+            ]);
+          }
+          rect.addEventListener("pointerenter", onEnter);
+          rect.addEventListener("pointermove", onEnter);
+          rect.addEventListener("focus", onEnter);
+          rect.addEventListener("pointerleave", hideTooltip);
+          rect.addEventListener("blur", hideTooltip);
+        })(b,pair,rect);
+      });
+      var lx = gx+groupW/2;
+      var t1 = el("text", {x:lx, y:H-M.b+16, "text-anchor":"end", fill:css('--ink-muted'), "font-size":10, transform:"rotate(-38 "+lx+" "+(H-M.b+16)+")"}, svg);
+      t1.textContent = b.label;
+    });
+
+    var tbl = document.createElement("table"); tbl.className = "mini";
+    tbl.innerHTML = "<caption>Underlying odds-band data</caption><thead><tr><th>Favorite odds</th><th>n</th><th>Implied</th><th>Actual</th></tr></thead>";
+    var tb = document.createElement("tbody");
+    bands.forEach(function(b){
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>"+b.label+"</td><td>"+b.n.toLocaleString()+"</td><td>"+pct(b.implied)+"</td><td>"+pct(b.actual)+"</td>";
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    container.appendChild(tbl);
+  }
+
+  function roundedTopBar(x,y,w,h,r){
+    if (h < r) r = Math.max(h,0);
+    return "M"+x+" "+(y+h)+" L"+x+" "+(y+r)+" Q"+x+" "+y+" "+(x+r)+" "+y+
+           " L"+(x+w-r)+" "+y+" Q"+(x+w)+" "+y+" "+(x+w)+" "+(y+r)+
+           " L"+(x+w)+" "+(y+h)+" Z";
+  }
+
+  /* ---- ROI cumulative line chart by year ---- */
+  function drawRoi(container, years){
+    container.innerHTML = "";
+    if (!years.length){ container.innerHTML = '<div class="empty-state">Not enough data in this filter.</div>'; return; }
+    var W = 720, H = 300, M = {t:20,r:70,b:34,l:50};
+    var iw = W-M.l-M.r, ih = H-M.t-M.b;
+    var svg = el("svg", {viewBox:"0 0 "+W+" "+H, width:"100%", role:"img",
+      "aria-label":"Cumulative ROI by year for favorite and underdog flat-stake strategies"}, container);
+
+    var minY = years[0].year, maxY = years[years.length-1].year;
+    var allVals = years.reduce(function(a,y){ return a.concat([y.favCumRoi,y.dogCumRoi]); }, [0]);
+    var vMin = Math.min.apply(null, allVals), vMax = Math.max.apply(null, allVals);
+    var pad = Math.max((vMax-vMin)*0.15, 0.02);
+    vMin -= pad; vMax += pad;
+
+    var sx = function(yr){ return maxY===minY ? M.l+iw/2 : M.l + (yr-minY)/(maxY-minY)*iw; };
+    var sy = function(v){ return M.t + (vMax-v)/(vMax-vMin)*ih; };
+
+    // gridlines: 0-line + a few ticks
+    var ticks = niceTicks(vMin, vMax, 5);
+    ticks.forEach(function(t){
+      el("line", {x1:M.l, x2:W-M.r, y1:sy(t), y2:sy(t), stroke:css('--line'), "stroke-width":1}, svg);
+      var lab = el("text", {x:M.l-8, y:sy(t)+4, "text-anchor":"end", fill:css('--ink-muted'), "font-size":10.5}, svg);
+      lab.textContent = Math.round(t*100)+"%";
+    });
+    if (vMin < 0 && vMax > 0){
+      el("line", {x1:M.l, x2:W-M.r, y1:sy(0), y2:sy(0), stroke:css('--ink-muted'), "stroke-width":1.3, "stroke-dasharray":"5 4"}, svg);
+    }
+    var yearTicks = years.filter(function(y,i){ return i===0 || i===years.length-1 || y.year%3===0; });
+    yearTicks.forEach(function(y){
+      var lab = el("text", {x:sx(y.year), y:H-M.b+18, "text-anchor":"middle", fill:css('--ink-muted'), "font-size":10.5}, svg);
+      lab.textContent = y.year;
+    });
+
+    function linePath(key){
+      return years.map(function(y,i){ return (i===0?"M":"L") + sx(y.year).toFixed(1)+" "+sy(y[key]).toFixed(1); }).join(" ");
+    }
+    el("path", {d:linePath("favCumRoi"), fill:"none", stroke:css('--series-1'), "stroke-width":2, "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+    el("path", {d:linePath("dogCumRoi"), fill:"none", stroke:css('--series-2'), "stroke-width":2, "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+    [["favCumRoi", css('--series-1'), "Favorite"], ["dogCumRoi", css('--series-2'), "Underdog"]].forEach(function(spec){
+      var last = years[years.length-1];
+      var cx = sx(last.year), cy = sy(last[spec[0]]);
+      el("circle", {cx:cx, cy:cy, r:4, fill:spec[1], stroke:css('--surface'), "stroke-width":2}, svg);
+      var lab = el("text", {x:cx+8, y:cy+4, fill:spec[1], "font-size":11.5, "font-weight":700}, svg);
+      lab.textContent = spec[2] + " " + (last[spec[0]]>=0?"+":"") + Math.round(last[spec[0]]*100) + "%";
+    });
+
+    // hover hit columns (crosshair-by-year)
+    years.forEach(function(y){
+      var hit = el("rect", {x: sx(y.year)-Math.max(iw/years.length/2,8), y:M.t, width: Math.max(iw/years.length,16), height: ih,
+        fill:"transparent", style:"cursor:pointer"}, svg);
+      hit.tabIndex = 0;
+      function onEnter(evt){
+        var r = svg.getBoundingClientRect();
+        var scale = r.width/W;
+        var px = r.left + sx(y.year)*scale;
+        var py = r.top + sy((y.favCumRoi+y.dogCumRoi)/2)*scale;
+        showTooltip(px, py, [
+          ttHeader(y.year + " — " + y.n.toLocaleString() + " fights"),
+          ttRow("Favorite cum. ROI", (y.favCumRoi>=0?"+":"")+Math.round(y.favCumRoi*1000)/10+"%", css('--series-1')),
+          ttRow("Underdog cum. ROI", (y.dogCumRoi>=0?"+":"")+Math.round(y.dogCumRoi*1000)/10+"%", css('--series-2')),
+          ttRow("Year P/L (favorite)", money(y.favProfit)),
+          ttRow("Year P/L (underdog)", money(y.dogProfit))
+        ]);
+        el("line", {x1:sx(y.year), x2:sx(y.year), y1:M.t, y2:M.t+ih, stroke:css('--ink-muted'), "stroke-width":1, id:"crosshair-roi"}, svg);
+        var old = svg.querySelectorAll("#crosshair-roi"); if (old.length>1) old[0].remove();
+      }
+      hit.addEventListener("pointerenter", onEnter);
+      hit.addEventListener("pointermove", onEnter);
+      hit.addEventListener("focus", onEnter);
+      hit.addEventListener("pointerleave", function(){ hideTooltip(); var c=svg.querySelector("#crosshair-roi"); if(c) c.remove(); });
+      hit.addEventListener("blur", function(){ hideTooltip(); var c=svg.querySelector("#crosshair-roi"); if(c) c.remove(); });
+    });
+  }
+
+  function niceTicks(min, max, count){
+    var range = max-min;
+    var step = Math.pow(10, Math.floor(Math.log10(range/count)));
+    var err = range/count/step;
+    if (err >= 7.5) step *= 10; else if (err >= 3) step *= 5; else if (err >= 1.5) step *= 2;
+    var start = Math.ceil(min/step)*step;
+    var out = [];
+    for (var v=start; v<=max+1e-9; v+=step) out.push(Math.round(v*1000)/1000);
+    return out;
+  }
+
+  /* ---- horizontal bar: weight class favorite win rate ---- */
+  function drawWeightClass(container, rows, overallRate){
+    container.innerHTML = "";
+    if (!rows.length){ container.innerHTML = '<div class="empty-state">Not enough data in this filter.</div>'; return; }
+    var rowH = 30, M = {t:10,r:64,b:34,l:150};
+    var W = 720, H = M.t+M.b+rows.length*rowH;
+    var iw = W-M.l-M.r;
+    var svg = el("svg", {viewBox:"0 0 "+W+" "+H, width:"100%", role:"img",
+      "aria-label":"Favorite win rate by weight class"}, container);
+
+    var maxV = Math.max(0.85, Math.max.apply(null, rows.map(function(r){return r.rate;})) + 0.05);
+    var sx = function(v){ return M.l + (v/maxV)*iw; };
+
+    [0,.2,.4,.6,.8].forEach(function(t){
+      if (t>maxV) return;
+      el("line", {x1:sx(t), x2:sx(t), y1:M.t, y2:H-M.b, stroke:css('--line'), "stroke-width":1}, svg);
+      el("text", {x:sx(t), y:H-M.b+16, "text-anchor":"middle", fill:css('--ink-muted'), "font-size":10.5}, svg).textContent = Math.round(t*100)+"%";
+    });
+
+    if (overallRate!==null && overallRate!==undefined){
+      var ox = sx(overallRate);
+      el("line", {x1:ox, x2:ox, y1:M.t, y2:H-M.b, stroke:css('--ink-muted'), "stroke-width":1.3, "stroke-dasharray":"5 4"}, svg);
+    }
+
+    rows.forEach(function(r, i){
+      var y = M.t + i*rowH + rowH/2;
+      var barH = 16;
+      el("text", {x:M.l-10, y:y+4, "text-anchor":"end", fill:css('--ink'), "font-size":12}, svg).textContent = r.wc;
+      var w = sx(r.rate)-M.l;
+      var rect = el("path", {d: roundedRightBar(M.l, y-barH/2, w, barH, 3), fill: css('--series-1')}, svg);
+      rect.style.cursor="pointer"; rect.tabIndex=0;
+      el("text", {x:sx(r.rate)+7, y:y+4, fill:css('--ink-2'), "font-size":11.5, "font-weight":600}, svg).textContent = pct(r.rate,0);
+      function onEnter(evt){
+        var rc = rect.getBoundingClientRect();
+        showTooltip(rc.right, rc.top, [
+          ttHeader(r.wc),
+          ttRow("Fights", r.n.toLocaleString(), css('--series-1')),
+          ttRow("Favorite win rate", pct(r.rate))
+        ]);
+      }
+      rect.addEventListener("pointerenter", onEnter);
+      rect.addEventListener("pointermove", onEnter);
+      rect.addEventListener("focus", onEnter);
+      rect.addEventListener("pointerleave", hideTooltip);
+      rect.addEventListener("blur", hideTooltip);
+    });
+  }
+  function roundedRightBar(x,y,w,h,r){
+    if (w < r) r = Math.max(w,0);
+    return "M"+x+" "+y+" L"+(x+w-r)+" "+y+" Q"+(x+w)+" "+y+" "+(x+w)+" "+(y+r)+
+           " L"+(x+w)+" "+(y+h-r)+" Q"+(x+w)+" "+(y+h)+" "+(x+w-r)+" "+(y+h)+
+           " L"+x+" "+(y+h)+" Z";
+  }
+
+  /* ============================================================
+     KPI TILES
+     ============================================================ */
+  function renderKpis(stats){
+    var row = document.getElementById("kpi-row");
+    row.innerHTML = "";
+    var favPct = stats.favWinRate!==null ? pct(stats.favWinRate,1) : "–";
+    var roiFav = stats.roi.favorite.pct, roiDog = stats.roi.underdog.pct;
+    var tiles = [
+      {lbl:"Matched fights", val: stats.n.toLocaleString(), foot: stats.decisiveN.toLocaleString()+" decisive · "+stats.draws+" draw · "+stats.ncs+" NC"},
+      {lbl:"Favorite win rate", val: favPct, foot: stats.favDecisions.toLocaleString()+" non-pick'em decisions"},
+      {lbl:"Underdog win rate", val: stats.favWinRate!==null? pct(1-stats.favWinRate,1) : "–", foot: stats.pickems+" pick'em fights excluded"},
+      {lbl:"Avg. sportsbook vig", val: stats.avgOverround!==null? pct(stats.avgOverround-1,1) : "–", foot: "overround above 100%"},
+      {lbl:"ROI — always favorite", val: (roiFav>=0?"+":"")+Math.round(roiFav*1000)/10+"%", foot: "flat $100/fight, "+stats.roi.favorite.n.toLocaleString()+" fights (excl. pick'em)", cls: roiFav>=0?"pos":"neg"},
+      {lbl:"ROI — always underdog", val: (roiDog>=0?"+":"")+Math.round(roiDog*1000)/10+"%", foot: "flat $100/fight, "+stats.roi.underdog.n.toLocaleString()+" fights (excl. pick'em)", cls: roiDog>=0?"pos":"neg"}
+    ];
+    tiles.forEach(function(t){
+      var d = document.createElement("div"); d.className = "kpi";
+      d.innerHTML = '<div class="lbl">'+t.lbl+'</div><div class="val'+(t.cls?" "+t.cls:"")+'">'+t.val+'</div><div class="foot">'+t.foot+'</div>';
+      row.appendChild(d);
+    });
+  }
+
+  /* ============================================================
+     FIGHTS TABLE (paginated)
+     ============================================================ */
+  var PAGE_SIZE = 40;
+  var tableState = { page: 0, rows: [] };
+
+  function renderTable(list){
+    tableState.rows = list.slice().sort(function(a,b){ return b.d < a.d ? -1 : (b.d>a.d?1:0); });
+    tableState.page = 0;
+    renderTablePage();
+  }
+  function renderTablePage(){
+    var tbody = document.getElementById("fights-tbody");
+    var rows = tableState.rows;
+    var totalPages = Math.max(1, Math.ceil(rows.length/PAGE_SIZE));
+    tableState.page = Math.min(tableState.page, totalPages-1);
+    var start = tableState.page*PAGE_SIZE, end = Math.min(start+PAGE_SIZE, rows.length);
+    tbody.innerHTML = "";
+    if (!rows.length){
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No fights match the current filters.</td></tr>';
+    }
+    for (var i=start;i<end;i++){
+      var f = rows[i];
+      var tr = document.createElement("tr");
+
+      var tdDate = document.createElement("td"); tdDate.textContent = f.d; tr.appendChild(tdDate);
+      var tdWc = document.createElement("td"); tdWc.textContent = (f.g==='W'?"Women's ":"")+f.wc; tr.appendChild(tdWc);
+
+      var tdA = document.createElement("td");
+      var spanA = document.createElement("span"); spanA.className = "fighter-name"+(f.w==='a'?" winner":"");
+      spanA.textContent = f.fa; tdA.appendChild(spanA);
+      if (f.fav==='a'){ var pillA=document.createElement("span"); pillA.className="pill fav"; pillA.textContent="FAV"; tdA.appendChild(document.createTextNode(" ")); tdA.appendChild(pillA); }
+      else if (f.fav==='b'){ var pillA2=document.createElement("span"); pillA2.className="pill dog"; pillA2.textContent="DOG"; tdA.appendChild(document.createTextNode(" ")); tdA.appendChild(pillA2); }
+      tr.appendChild(tdA);
+
+      var tdOa = document.createElement("td"); tdOa.className="num mono"; tdOa.textContent = fmtOdds(f.oa); tr.appendChild(tdOa);
+
+      var tdB = document.createElement("td");
+      var spanB = document.createElement("span"); spanB.className = "fighter-name"+(f.w==='b'?" winner":"");
+      spanB.textContent = f.fb; tdB.appendChild(spanB);
+      if (f.fav==='b'){ var pillB=document.createElement("span"); pillB.className="pill fav"; pillB.textContent="FAV"; tdB.appendChild(document.createTextNode(" ")); tdB.appendChild(pillB); }
+      else if (f.fav==='a'){ var pillB2=document.createElement("span"); pillB2.className="pill dog"; pillB2.textContent="DOG"; tdB.appendChild(document.createTextNode(" ")); tdB.appendChild(pillB2); }
+      tr.appendChild(tdB);
+
+      var tdOb = document.createElement("td"); tdOb.className="num mono"; tdOb.textContent = fmtOdds(f.ob); tr.appendChild(tdOb);
+
+      var tdM = document.createElement("td");
+      tdM.textContent = f.w==='D' ? (f.m+" (Draw)") : f.w==='N' ? (f.m+" (No Contest)") : f.m;
+      tr.appendChild(tdM);
+
+      tbody.appendChild(tr);
+    }
+    document.getElementById("pg-label").textContent = "Page "+(tableState.page+1)+" of "+totalPages+" · "+rows.length.toLocaleString()+" fights";
+    document.getElementById("pg-prev").disabled = tableState.page<=0;
+    document.getElementById("pg-next").disabled = tableState.page>=totalPages-1;
+  }
+  document.getElementById("pg-prev").addEventListener("click", function(){ tableState.page--; renderTablePage(); });
+  document.getElementById("pg-next").addEventListener("click", function(){ tableState.page++; renderTablePage(); });
+
+  /* ============================================================
+     APP: filters + orchestration
+     ============================================================ */
+  var ALL = []; // all enriched fights
+  var META = {};
+
+  function applyFilters(){
+    var gender = document.getElementById("f-gender").value;
+    var wc = document.getElementById("f-wc").value;
+    var from = +document.getElementById("f-from").value;
+    var to = +document.getElementById("f-to").value;
+
+    var genderDate = ALL.filter(function(f){
+      if (gender!=="all" && f.g!==gender) return false;
+      if (f._year < from || f._year > to) return false;
+      return true;
+    });
+    var full = genderDate.filter(function(f){
+      if (wc!=="all" && f.wc!==wc) return false;
+      return true;
+    });
+
+    document.getElementById("fc-n").textContent = full.length.toLocaleString();
+
+    var stats = computeStats(full);
+    renderKpis(stats);
+    drawCalibration(document.getElementById("chart-calibration"), stats.calibration);
+    drawOddsBands(document.getElementById("chart-oddsbands"), stats.oddsBands);
+    drawRoi(document.getElementById("chart-roi"), stats.byYear);
+    drawWeightClass(document.getElementById("chart-weightclass"), computeWeightClassBreakdown(genderDate), stats.favWinRate);
+    renderTable(full);
+  }
+
+  function populateFilterOptions(){
+    var wcSet = {};
+    var minYear = Infinity, maxYear = -Infinity;
+    ALL.forEach(function(f){
+      wcSet[f.wc] = true;
+      if (f._year < minYear) minYear = f._year;
+      if (f._year > maxYear) maxYear = f._year;
+    });
+    var wcSel = document.getElementById("f-wc");
+    Object.keys(wcSet).sort().forEach(function(wc){
+      var opt = document.createElement("option"); opt.value = wc; opt.textContent = wc;
+      wcSel.appendChild(opt);
+    });
+
+    var fromSel = document.getElementById("f-from"), toSel = document.getElementById("f-to");
+    for (var y=minYear; y<=maxYear; y++){
+      var o1 = document.createElement("option"); o1.value=y; o1.textContent=y; fromSel.appendChild(o1);
+      var o2 = document.createElement("option"); o2.value=y; o2.textContent=y; toSel.appendChild(o2);
+    }
+    fromSel.value = minYear; toSel.value = maxYear;
+
+    document.getElementById("hdr-daterange").textContent = minYear+"–"+maxYear;
+    document.getElementById("hdr-count").textContent = ALL.length.toLocaleString();
+  }
+
+  ["f-gender","f-wc","f-from","f-to"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", applyFilters);
+  });
+  document.getElementById("f-reset").addEventListener("click", function(){
+    document.getElementById("f-gender").value = "all";
+    document.getElementById("f-wc").value = "all";
+    var fromSel = document.getElementById("f-from"), toSel = document.getElementById("f-to");
+    fromSel.value = fromSel.options[0].value;
+    toSel.value = toSel.options[toSel.options.length-1].value;
+    applyFilters();
+  });
+
+  loadData().then(function(data){
+    ALL = data.fights.fights.map(enrich);
+    META = data.summary;
+    populateFilterOptions();
+    document.getElementById("foot-mlrange").textContent = META.date_range.min.slice(0,4) + "–" + META.date_range.max.slice(0,4);
+    var matchRate = META.overall.matched_with_moneyline / META.overall.total_fights_in_fight_data;
+    document.getElementById("foot-matchrate").textContent = pct(matchRate,0) + " of all-time UFC fights (" +
+      pct(META.overall.matched_with_moneyline / META.overall.fights_in_moneyline_date_window, 0) + " of fights that fall inside the moneyline data's own date coverage)";
+    applyFilters();
+  }).catch(function(err){
+    document.getElementById("kpi-row").innerHTML = '<div class="empty-state">Could not load dashboard data (' + err.message + '). If you opened this file directly from disk, some browsers block local JSON fetches — try serving the docs/ folder with a static server, or view it via GitHub Pages.</div>';
+    console.error(err);
+  });
+
+})();
+</script>
+</body>
+</html>

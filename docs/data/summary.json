@@ -1,0 +1,400 @@
+{
+  "generated": "2026-08-04",
+  "overall": {
+    "total_fights_in_fight_data": 8679,
+    "fights_in_moneyline_date_window": 6707,
+    "matched_with_moneyline": 5648,
+    "decisive_matched": 5549,
+    "draws": 64,
+    "no_contests": 35,
+    "pickem_fights": 32,
+    "favorite_win_rate": 0.6621,
+    "underdog_win_rate": 0.3379,
+    "n_favorite_decisions": 5517,
+    "avg_overround": 1.0607
+  },
+  "calibration_deciles": [
+    {
+      "bucket_lo": -0.001,
+      "bucket_hi": 0.1,
+      "n": 10,
+      "avg_predicted": 0.0949,
+      "actual_win_rate": 0.0
+    },
+    {
+      "bucket_lo": 0.1,
+      "bucket_hi": 0.2,
+      "n": 376,
+      "avg_predicted": 0.1689,
+      "actual_win_rate": 0.1277
+    },
+    {
+      "bucket_lo": 0.2,
+      "bucket_hi": 0.3,
+      "n": 1329,
+      "avg_predicted": 0.2548,
+      "actual_win_rate": 0.2122
+    },
+    {
+      "bucket_lo": 0.3,
+      "bucket_hi": 0.4,
+      "n": 1977,
+      "avg_predicted": 0.3515,
+      "actual_win_rate": 0.349
+    },
+    {
+      "bucket_lo": 0.4,
+      "bucket_hi": 0.5,
+      "n": 1889,
+      "avg_predicted": 0.4472,
+      "actual_win_rate": 0.4637
+    },
+    {
+      "bucket_lo": 0.5,
+      "bucket_hi": 0.6,
+      "n": 1826,
+      "avg_predicted": 0.5547,
+      "actual_win_rate": 0.5378
+    },
+    {
+      "bucket_lo": 0.6,
+      "bucket_hi": 0.7,
+      "n": 1976,
+      "avg_predicted": 0.6485,
+      "actual_win_rate": 0.6508
+    },
+    {
+      "bucket_lo": 0.7,
+      "bucket_hi": 0.8,
+      "n": 1330,
+      "avg_predicted": 0.7452,
+      "actual_win_rate": 0.788
+    },
+    {
+      "bucket_lo": 0.8,
+      "bucket_hi": 0.9,
+      "n": 375,
+      "avg_predicted": 0.8312,
+      "actual_win_rate": 0.872
+    },
+    {
+      "bucket_lo": 0.9,
+      "bucket_hi": 1.0,
+      "n": 10,
+      "avg_predicted": 0.9051,
+      "actual_win_rate": 1.0
+    }
+  ],
+  "favorite_odds_bands": [
+    {
+      "label": "\u2264 -500",
+      "lo": -100000,
+      "hi": -500,
+      "n": 532,
+      "avg_fav_odds": -754.7,
+      "implied_prob_fair": 0.818,
+      "actual_win_rate": 0.8759
+    },
+    {
+      "label": "-499 to -300",
+      "lo": -500,
+      "hi": -300,
+      "n": 1087,
+      "avg_fav_odds": -373.0,
+      "implied_prob_fair": 0.7423,
+      "actual_win_rate": 0.7847
+    },
+    {
+      "label": "-299 to -250",
+      "lo": -300,
+      "hi": -250,
+      "n": 629,
+      "avg_fav_odds": -268.2,
+      "implied_prob_fair": 0.6871,
+      "actual_win_rate": 0.6852
+    },
+    {
+      "label": "-249 to -200",
+      "lo": -250,
+      "hi": -200,
+      "n": 904,
+      "avg_fav_odds": -220.3,
+      "implied_prob_fair": 0.6486,
+      "actual_win_rate": 0.6549
+    },
+    {
+      "label": "-199 to -175",
+      "lo": -200,
+      "hi": -175,
+      "n": 565,
+      "avg_fav_odds": -184.0,
+      "implied_prob_fair": 0.6121,
+      "actual_win_rate": 0.6018
+    },
+    {
+      "label": "-174 to -150",
+      "lo": -175,
+      "hi": -150,
+      "n": 815,
+      "avg_fav_odds": -160.5,
+      "implied_prob_fair": 0.5818,
+      "actual_win_rate": 0.5791
+    },
+    {
+      "label": "-149 to -135",
+      "lo": -150,
+      "hi": -135,
+      "n": 448,
+      "avg_fav_odds": -140.7,
+      "implied_prob_fair": 0.5497,
+      "actual_win_rate": 0.5335
+    },
+    {
+      "label": "-134 to -120",
+      "lo": -135,
+      "hi": -120,
+      "n": 418,
+      "avg_fav_odds": -126.0,
+      "implied_prob_fair": 0.5238,
+      "actual_win_rate": 0.4904
+    },
+    {
+      "label": "-119 to -100",
+      "lo": -120,
+      "hi": -100,
+      "n": 119,
+      "avg_fav_odds": -115.2,
+      "implied_prob_fair": 0.5081,
+      "actual_win_rate": 0.4622
+    }
+  ],
+  "roi_flat_100_stake": {
+    "always_favorite": {
+      "n_fights": 5614,
+      "total_staked": 561400.0,
+      "total_profit": -27230.45,
+      "roi_pct": -4.85
+    },
+    "always_underdog": {
+      "n_fights": 5614,
+      "total_staked": 561400.0,
+      "total_profit": -57900.59,
+      "roi_pct": -10.31
+    }
+  },
+  "roi_by_year": [
+    {
+      "year": 2007,
+      "n": 79,
+      "fav_profit": 549.16,
+      "dog_profit": -2439.26,
+      "fav_cum_roi_pct": 6.95,
+      "dog_cum_roi_pct": -30.88
+    },
+    {
+      "year": 2008,
+      "n": 180,
+      "fav_profit": -718.14,
+      "dog_profit": -1994.0,
+      "fav_cum_roi_pct": -0.65,
+      "dog_cum_roi_pct": -17.12
+    },
+    {
+      "year": 2009,
+      "n": 193,
+      "fav_profit": -1435.12,
+      "dog_profit": -252.23,
+      "fav_cum_roi_pct": -3.55,
+      "dog_cum_roi_pct": -10.37
+    },
+    {
+      "year": 2010,
+      "n": 216,
+      "fav_profit": -1048.55,
+      "dog_profit": -1062.75,
+      "fav_cum_roi_pct": -3.97,
+      "dog_cum_roi_pct": -8.61
+    },
+    {
+      "year": 2011,
+      "n": 266,
+      "fav_profit": -247.45,
+      "dog_profit": -3298.16,
+      "fav_cum_roi_pct": -3.11,
+      "dog_cum_roi_pct": -9.69
+    },
+    {
+      "year": 2012,
+      "n": 308,
+      "fav_profit": -1421.8,
+      "dog_profit": -1806.89,
+      "fav_cum_roi_pct": -3.48,
+      "dog_cum_roi_pct": -8.74
+    },
+    {
+      "year": 2013,
+      "n": 344,
+      "fav_profit": -897.92,
+      "dog_profit": -5344.01,
+      "fav_cum_roi_pct": -3.29,
+      "dog_cum_roi_pct": -10.21
+    },
+    {
+      "year": 2014,
+      "n": 436,
+      "fav_profit": -1834.38,
+      "dog_profit": -3825.18,
+      "fav_cum_roi_pct": -3.49,
+      "dog_cum_roi_pct": -9.9
+    },
+    {
+      "year": 2015,
+      "n": 411,
+      "fav_profit": -4993.11,
+      "dog_profit": 2465.18,
+      "fav_cum_roi_pct": -4.95,
+      "dog_cum_roi_pct": -7.22
+    },
+    {
+      "year": 2016,
+      "n": 423,
+      "fav_profit": -2344.51,
+      "dog_profit": -2678.2,
+      "fav_cum_roi_pct": -5.04,
+      "dog_cum_roi_pct": -7.09
+    },
+    {
+      "year": 2017,
+      "n": 401,
+      "fav_profit": -705.15,
+      "dog_profit": -4633.04,
+      "fav_cum_roi_pct": -4.64,
+      "dog_cum_roi_pct": -7.64
+    },
+    {
+      "year": 2018,
+      "n": 399,
+      "fav_profit": -1619.33,
+      "dog_profit": -6441.51,
+      "fav_cum_roi_pct": -4.57,
+      "dog_cum_roi_pct": -8.56
+    },
+    {
+      "year": 2019,
+      "n": 453,
+      "fav_profit": -3760.5,
+      "dog_profit": -3005.21,
+      "fav_cum_roi_pct": -4.98,
+      "dog_cum_roi_pct": -8.35
+    },
+    {
+      "year": 2020,
+      "n": 426,
+      "fav_profit": -1151.39,
+      "dog_profit": -5006.29,
+      "fav_cum_roi_pct": -4.77,
+      "dog_cum_roi_pct": -8.67
+    },
+    {
+      "year": 2021,
+      "n": 440,
+      "fav_profit": -1811.06,
+      "dog_profit": -8059.31,
+      "fav_cum_roi_pct": -4.71,
+      "dog_cum_roi_pct": -9.52
+    },
+    {
+      "year": 2022,
+      "n": 409,
+      "fav_profit": -2579.0,
+      "dog_profit": -6730.17,
+      "fav_cum_roi_pct": -4.83,
+      "dog_cum_roi_pct": -10.05
+    },
+    {
+      "year": 2023,
+      "n": 230,
+      "fav_profit": -1212.21,
+      "dog_profit": -3789.55,
+      "fav_cum_roi_pct": -4.85,
+      "dog_cum_roi_pct": -10.31
+    }
+  ],
+  "favorite_win_rate_by_weight_class": [
+    {
+      "weight_class": "Lightweight",
+      "n": 994,
+      "favorite_win_rate": 0.6942
+    },
+    {
+      "weight_class": "Welterweight",
+      "n": 950,
+      "favorite_win_rate": 0.6505
+    },
+    {
+      "weight_class": "Heavyweight",
+      "n": 895,
+      "favorite_win_rate": 0.6603
+    },
+    {
+      "weight_class": "Middleweight",
+      "n": 700,
+      "favorite_win_rate": 0.6486
+    },
+    {
+      "weight_class": "Bantamweight",
+      "n": 691,
+      "favorite_win_rate": 0.6686
+    },
+    {
+      "weight_class": "Featherweight",
+      "n": 609,
+      "favorite_win_rate": 0.6322
+    },
+    {
+      "weight_class": "Flyweight",
+      "n": 424,
+      "favorite_win_rate": 0.6675
+    },
+    {
+      "weight_class": "Strawweight",
+      "n": 206,
+      "favorite_win_rate": 0.6699
+    },
+    {
+      "weight_class": "Catchweight",
+      "n": 48,
+      "favorite_win_rate": 0.6667
+    }
+  ],
+  "favorite_win_rate_by_gender": [
+    {
+      "gender": "M",
+      "n": 4928,
+      "favorite_win_rate": 0.664
+    },
+    {
+      "gender": "W",
+      "n": 589,
+      "favorite_win_rate": 0.6469
+    }
+  ],
+  "method_distribution_when_favorite_wins": {
+    "Decision": 1738,
+    "KO/TKO": 1159,
+    "Submission": 715,
+    "TKO": 38,
+    "DQ": 3
+  },
+  "method_distribution_when_underdog_wins": {
+    "Decision": 942,
+    "KO/TKO": 574,
+    "Submission": 325,
+    "TKO": 14,
+    "DQ": 9
+  },
+  "date_range": {
+    "min": "2007-06-16",
+    "max": "2023-08-05"
+  }
+}
