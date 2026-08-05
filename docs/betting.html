@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UFC Betting Odds Dashboard</title>
 <meta name="description" content="Historical UFC betting-odds performance: favorite/underdog win rates, calibration, and naive-strategy ROI.">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
 <style>
   :root{
     color-scheme: light;
@@ -139,7 +141,7 @@
 
   /* ---------- filter bar ---------- */
   .filterbar{
-    position: sticky; top: 0; z-index: 20;
+    position: sticky; top: 46px; z-index: 20;   /* sits under the shared site nav */
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(10px) saturate(1.2);
     border-bottom: 1px solid var(--line);
@@ -241,6 +243,14 @@
   }
   table.fights tbody td{ padding: 8px 12px; border-bottom: 1px solid var(--line); white-space:nowrap; }
   table.fights tbody tr:hover{ background: var(--surface-2); }
+  table.fights tbody td a{ color: var(--ink); text-decoration:none; border-bottom: 1px solid var(--line-strong); }
+  table.fights tbody td a:hover{ color: var(--series-1); border-bottom-color: var(--series-1); }
+  .event-banner{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px;
+    background: var(--accent-soft); border:1px solid var(--line); border-radius:10px;
+    padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+  }
+  .event-banner b{ color: var(--accent-ink); }
   table.fights td.num{ font-variant-numeric: tabular-nums; text-align:right; }
   .pill{
     display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
@@ -269,6 +279,8 @@
 </style>
 </head>
 <body>
+
+<div id="sitenav-slot"></div>
 
 <header class="top">
   <div class="inner">
@@ -363,6 +375,7 @@
   <h2 class="section-title">Fight-by-fight</h2>
   <p class="section-desc">Every matched fight in the current filter, favorite marked, winner checked.</p>
   <div class="card tablecard">
+    <div id="event-banner" hidden></div>
     <div class="table-scroll">
       <table class="fights" id="fights-table">
         <thead>
@@ -404,24 +417,32 @@
      Falls back to an inline payload if window.__INLINE_DATA__ is
      set (used only for the standalone preview build of this page).
      ============================================================ */
-  var DATA_BASE = "data/";
-
   function loadData(){
     if (window.__INLINE_DATA__) {
       return Promise.resolve(window.__INLINE_DATA__);
     }
-    return Promise.all([
-      fetch(DATA_BASE + "fights.json").then(function(r){
-        if(!r.ok) throw new Error("fights.json " + r.status);
-        return r.json();
-      }),
-      fetch(DATA_BASE + "summary.json").then(function(r){
-        if(!r.ok) throw new Error("summary.json " + r.status);
-        return r.json();
-      })
-    ]).then(function(res){
-      return { fights: res[0], summary: res[1] };
-    });
+    return UFC.load();
+  }
+
+  /* ------------------------------------------------------------------
+     SCHEMA ADAPTER
+     fights.json now carries every UFC bout (priced or not) and refers to
+     fighters by index instead of by name. This page only ever analysed
+     bouts that carry a matched closing line, so: keep the priced ones and
+     restore the fields the rest of this file expects (fa, fb, fav).
+     ------------------------------------------------------------------ */
+  function adapt(data){
+    var fighters = data.fighters;
+    var out = [];
+    for (var i=0; i<data.fights.length; i++){
+      var f = data.fights[i];
+      if (f.oa === null || f.oa === undefined || f.ob === null || f.ob === undefined) continue;
+      f.fa = fighters[f.a] ? fighters[f.a].n : "Unknown";
+      f.fb = fighters[f.b] ? fighters[f.b].n : "Unknown";
+      f.fav = f.oa === f.ob ? "pickem" : (f.oa < f.ob ? "a" : "b");
+      out.push(f);
+    }
+    return out;
   }
 
   /* ============================================================
@@ -943,32 +964,37 @@
     var start = tableState.page*PAGE_SIZE, end = Math.min(start+PAGE_SIZE, rows.length);
     tbody.innerHTML = "";
     if (!rows.length){
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No fights match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' +
+        (eventFilter !== null
+          ? "No bout on this card has a matched closing line — the odds source does not cover it."
+          : "No fights match the current filters.") + "</td></tr>";
     }
     for (var i=start;i<end;i++){
       var f = rows[i];
       var tr = document.createElement("tr");
 
-      var tdDate = document.createElement("td"); tdDate.textContent = f.d; tr.appendChild(tdDate);
+      var tdDate = document.createElement("td"); tdDate.textContent = UFC.fmtDate(f.d); tr.appendChild(tdDate);
       var tdWc = document.createElement("td"); tdWc.textContent = (f.g==='W'?"Women's ":"")+f.wc; tr.appendChild(tdWc);
 
       var tdA = document.createElement("td");
-      var spanA = document.createElement("span"); spanA.className = "fighter-name"+(f.w==='a'?" winner":"");
+      var spanA = document.createElement("a"); spanA.className = "fighter-name"+(f.w==='a'?" winner":"");
+      spanA.href = "fighter.html?id=" + f.a;
       spanA.textContent = f.fa; tdA.appendChild(spanA);
       if (f.fav==='a'){ var pillA=document.createElement("span"); pillA.className="pill fav"; pillA.textContent="FAV"; tdA.appendChild(document.createTextNode(" ")); tdA.appendChild(pillA); }
       else if (f.fav==='b'){ var pillA2=document.createElement("span"); pillA2.className="pill dog"; pillA2.textContent="DOG"; tdA.appendChild(document.createTextNode(" ")); tdA.appendChild(pillA2); }
       tr.appendChild(tdA);
 
-      var tdOa = document.createElement("td"); tdOa.className="num mono"; tdOa.textContent = fmtOdds(f.oa); tr.appendChild(tdOa);
+      var tdOa = document.createElement("td"); tdOa.className="num mono"; tdOa.textContent = UFC.odds(f.oa); tr.appendChild(tdOa);
 
       var tdB = document.createElement("td");
-      var spanB = document.createElement("span"); spanB.className = "fighter-name"+(f.w==='b'?" winner":"");
+      var spanB = document.createElement("a"); spanB.className = "fighter-name"+(f.w==='b'?" winner":"");
+      spanB.href = "fighter.html?id=" + f.b;
       spanB.textContent = f.fb; tdB.appendChild(spanB);
       if (f.fav==='b'){ var pillB=document.createElement("span"); pillB.className="pill fav"; pillB.textContent="FAV"; tdB.appendChild(document.createTextNode(" ")); tdB.appendChild(pillB); }
       else if (f.fav==='a'){ var pillB2=document.createElement("span"); pillB2.className="pill dog"; pillB2.textContent="DOG"; tdB.appendChild(document.createTextNode(" ")); tdB.appendChild(pillB2); }
       tr.appendChild(tdB);
 
-      var tdOb = document.createElement("td"); tdOb.className="num mono"; tdOb.textContent = fmtOdds(f.ob); tr.appendChild(tdOb);
+      var tdOb = document.createElement("td"); tdOb.className="num mono"; tdOb.textContent = UFC.odds(f.ob); tr.appendChild(tdOb);
 
       var tdM = document.createElement("td");
       tdM.textContent = f.w==='D' ? (f.m+" (Draw)") : f.w==='N' ? (f.m+" (No Contest)") : f.m;
@@ -986,8 +1012,39 @@
   /* ============================================================
      APP: filters + orchestration
      ============================================================ */
-  var ALL = []; // all enriched fights
+  var ALL = []; // all enriched fights that carry a matched closing line
   var META = {};
+  var EVENTS = [], FIGHTERS = [];
+  var eventFilter = null;   // set by a #event-<id> deep link from fighter.html
+
+  /* fighter.html links each bout to its card: betting.html#event-123 scopes the
+     fight-by-fight table (not the charts) to that event. */
+  function applyEventDeepLink(){
+    var m = /^#event-(\d+)$/.exec(location.hash || "");
+    eventFilter = m ? +m[1] : null;
+    renderEventBanner();
+  }
+  function renderEventBanner(){
+    var el = document.getElementById("event-banner");
+    el.innerHTML = "";
+    if (eventFilter === null || !EVENTS[eventFilter]){ el.hidden = true; return; }
+    var ev = EVENTS[eventFilter];
+    el.hidden = false;
+    var txt = document.createElement("span");
+    txt.innerHTML = "Showing one card: <b>" + ev.n.replace(/[<>&]/g,"") + "</b> · " +
+      UFC.fmtDate(ev.d) + " · " + ev.nf + " bouts on the card";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "reset-btn";
+    btn.textContent = "Show all fights";
+    btn.addEventListener("click", function(){
+      if (location.hash) location.hash = "";
+      eventFilter = null; renderEventBanner(); applyFilters();
+    });
+    el.appendChild(txt); el.appendChild(btn);
+  }
+  window.addEventListener("hashchange", function(){ applyEventDeepLink(); applyFilters(); });
+  /* theme flip / odds-format change: charts read CSS tokens at draw time */
+  window.addEventListener("ufc:repaint", function(){ if (ALL.length) applyFilters(); });
 
   function applyFilters(){
     var gender = document.getElementById("f-gender").value;
@@ -1013,7 +1070,7 @@
     drawOddsBands(document.getElementById("chart-oddsbands"), stats.oddsBands);
     drawRoi(document.getElementById("chart-roi"), stats.byYear);
     drawWeightClass(document.getElementById("chart-weightclass"), computeWeightClassBreakdown(genderDate), stats.favWinRate);
-    renderTable(full);
+    renderTable(eventFilter === null ? full : full.filter(function(f){ return f.e === eventFilter; }));
   }
 
   function populateFilterOptions(){
@@ -1053,10 +1110,15 @@
     applyFilters();
   });
 
+  UFC.nav("betting");
+
   loadData().then(function(data){
-    ALL = data.fights.fights.map(enrich);
+    EVENTS = data.events || [];
+    FIGHTERS = data.fighters || [];
+    ALL = adapt(data).map(enrich);
     META = data.summary;
     populateFilterOptions();
+    applyEventDeepLink();
     document.getElementById("foot-mlrange").textContent = META.date_range.min.slice(0,4) + "–" + META.date_range.max.slice(0,4);
     var matchRate = META.overall.matched_with_moneyline / META.overall.total_fights_in_fight_data;
     document.getElementById("foot-matchrate").textContent = pct(matchRate,0) + " of all-time UFC fights (" +

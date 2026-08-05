@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fighter profile · UFC_Data</title>
+<meta name="description" content="Full UFC fight history, closing odds, market résumé and career charts for a single fighter.">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  /* page-local layout only — everything visual comes from assets/site.css */
+  .idhead{ display:flex; flex-wrap:wrap; gap:18px 28px; align-items:flex-end; justify-content:space-between; }
+  .idhead .facts{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:8px 0 0; padding:0; list-style:none;
+                  font-size:13px; color:var(--ink-2); }
+  .idhead .facts li{ display:flex; gap:6px; }
+  .idhead .facts b{ color:var(--ink); font-weight:600; }
+  .rec-big{ font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;
+            font-size:19px; font-weight:700; color:var(--ink); }
+  .grid-3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; }
+  @media (max-width: 980px){ .grid-3{ grid-template-columns:1fr; } }
+  .resume-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:14px 22px; margin-top:4px; }
+  .resume-grid .lbl{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted); }
+  .resume-grid .val{ font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;
+                     font-size:21px; font-weight:700; margin-top:4px; }
+  .resume-grid .foot{ font-size:11.5px; color:var(--ink-muted); margin-top:2px; }
+  .upset{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-2); }
+  .upset .big{ font-family: ui-monospace,Menlo,Consolas,monospace; font-weight:700; color:var(--series-2); font-size:16px; }
+  .nodata{ color:var(--ink-muted); }
+  td.odds-na{ color: var(--ink-muted); cursor: help; }
+  .wc-list{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .histnote{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; justify-content:space-between;
+             margin:10px 2px 0; font-size:11.5px; color:var(--ink-muted); }
+  .donut-wrap{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div class="idhead" style="flex:1">
+      <div>
+        <p class="kicker" id="f-kicker">Fighter profile</p>
+        <h1 id="f-name">Loading…</h1>
+        <ul class="facts" id="f-facts"></ul>
+        <div class="wc-list" id="f-wcs"></div>
+      </div>
+    </div>
+    <div class="source-note">
+      Closing odds coverage<br><span id="f-coverage">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+  <div id="f-missing" hidden>
+    <div class="card" style="margin-top:28px">
+      <h3>No fighter selected</h3>
+      <p class="cardnote" id="f-missing-msg">This page needs a fighter id, e.g. <code>fighter.html?id=1294</code>.</p>
+      <p style="font-size:13.5px;margin:0">
+        Browse the <a href="fighters.html">full fighter directory</a> (every fighter in the database),
+        or press <kbd>/</kbd> to search by name.
+      </p>
+    </div>
+  </div>
+
+  <div id="f-body" hidden>
+
+    <h2 class="section-title" style="margin-top:28px;">Career at a glance</h2>
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <h2 class="section-title">Market résumé</h2>
+    <p class="section-desc">How the betting market priced this fighter, and how often it was right. Favourite/underdog
+      counts cover fights with a matched closing line and a decisive result — draws and no-contests are excluded.</p>
+    <div class="card" id="resume-card"></div>
+
+    <h2 class="section-title">Career shape</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Win / loss timeline</h3>
+        <p class="cardnote">Running record (wins minus losses), one point per fight</p>
+        <div class="chart-wrap" id="chart-timeline"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch sq" style="background:var(--good)"></span>Win</span>
+          <span class="item"><span class="swatch sq" style="background:var(--critical)"></span>Loss</span>
+          <span class="item"><span class="swatch sq" style="background:var(--ink-muted)"></span>Draw / NC</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Significant-strike accuracy</h3>
+        <p class="cardnote">Landed ÷ attempted, per fight, chronological</p>
+        <div class="chart-wrap" id="chart-accuracy"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Per-fight accuracy</span>
+          <span class="item"><span class="swatch dash"></span>Career average</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Method of victory</h3>
+        <p class="cardnote">How the wins were finished</p>
+        <div class="chart-wrap donut-wrap" id="chart-methods"></div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Fight history</h2>
+    <p class="section-desc">Every UFC bout on record, newest first. Closing odds are this fighter's own American price;
+      implied probability is taken straight from that price and still contains the book's vig.</p>
+    <div class="card" style="padding:14px 14px 10px">
+      <div class="table-frozen">
+        <table class="odds" id="hist-table">
+          <thead>
+            <tr>
+              <th class="l">Date</th>
+              <th class="l">Opponent</th>
+              <th class="l">Event</th>
+              <th>Odds</th>
+              <th>Implied</th>
+              <th class="c">Result</th>
+              <th class="l">Method</th>
+              <th>Rd</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+      <div class="histnote">
+        <span id="hist-count">–</span>
+        <span>Odds shown in <b id="hist-fmt">American</b> format — change it in the top bar.</span>
+      </div>
+    </div>
+
+    <footer>
+      <strong>About this page.</strong> Built from <code>Data/fight_data.csv</code> (fight results and per-fight
+      statistics) joined to <code>Data/moneyline.csv</code> (historical closing moneylines). Notes:
+      <ul>
+        <li id="foot-coverage">–</li>
+        <li>A <span class="mono">—</span> in the odds column means no closing line was matched for that bout. It is never a substitute for a real price.</li>
+        <li>Per-fight statistics come from the official UFC scorecards; bouts before roughly 2001 often have partial or zero strike counts, which drags early accuracy points toward 0%.</li>
+        <li>Implied probability is the raw single-side conversion of the American price and therefore sums to more than 100% across both corners (the overround).</li>
+      </ul>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var qs = new URLSearchParams(location.search);
+  var rawId = qs.get("id");
+  var fighterId = rawId === null || rawId === "" ? null : parseInt(rawId, 10);
+
+  var DATA = null, ME = null, MY = [];
+
+  function showMissing(msg) {
+    document.getElementById("f-missing").hidden = false;
+    document.getElementById("f-body").hidden = true;
+    document.getElementById("f-name").textContent = "Fighter not found";
+    document.getElementById("f-kicker").textContent = "UFC_Data";
+    if (msg) document.getElementById("f-missing-msg").innerHTML = msg;
+  }
+
+  /* ---------------------------------------------------------------- header */
+  function renderHeader() {
+    document.title = ME.n + " · UFC_Data";
+    document.getElementById("f-name").textContent = ME.n;
+    document.getElementById("f-kicker").textContent = "Fighter profile";
+
+    var wins = ME.w, finishes = ME.ko + ME.sub;
+    var facts = [
+      ["Record", '<span class="rec-big">' + UFC.record(ME) + "</span>"],
+      ["Career", UFC.fmtDate(ME.f) + " – " + UFC.fmtDate(ME.la) + " (" + span(ME.f, ME.la) + ")"],
+      ["Finish rate", wins ? UFC.pct(finishes / wins, 0) + " of wins" : "—"],
+      ["UFC bouts", MY.length.toLocaleString()]
+    ];
+    var ul = document.getElementById("f-facts");
+    ul.innerHTML = "";
+    facts.forEach(function (f) {
+      var li = document.createElement("li");
+      li.innerHTML = "<span>" + f[0] + "</span><b>" + f[1] + "</b>";
+      ul.appendChild(li);
+    });
+
+    /* weight classes fought at, most frequent first */
+    var counts = {}, order = [];
+    MY.forEach(function (f) {
+      var key = (f.g === "W" ? "Women's " : "") + f.wc;
+      if (!counts[key]) { counts[key] = 0; order.push(key); }
+      counts[key]++;
+    });
+    order.sort(function (a, b) { return counts[b] - counts[a]; });
+    var wcWrap = document.getElementById("f-wcs");
+    wcWrap.innerHTML = "";
+    order.forEach(function (k) {
+      var s = document.createElement("span");
+      s.className = "pill ghost";
+      s.textContent = k + " · " + counts[k];
+      wcWrap.appendChild(s);
+    });
+    var titles = MY.filter(function (f) { return f.t > 0; }).length;
+    if (titles) {
+      var t = document.createElement("span");
+      t.className = "pill title";
+      t.textContent = titles + " title bout" + (titles === 1 ? "" : "s");
+      wcWrap.appendChild(t);
+    }
+
+    var cov = UFC.oddsCoverage;
+    document.getElementById("f-coverage").textContent =
+      cov ? UFC.fmtDate(cov.from) + " – " + UFC.fmtDate(cov.to) : "unknown";
+    document.getElementById("foot-coverage").textContent = cov
+      ? "Matched closing lines exist only between " + UFC.fmtDateLong(cov.from) + " and " +
+        UFC.fmtDateLong(cov.to) + " — " + cov.priced.toLocaleString() + " of " +
+        cov.total.toLocaleString() + " UFC fights in the database are priced."
+      : "Odds coverage is partial.";
+  }
+
+  function span(a, b) {
+    var y = UFC.year(b) - UFC.year(a);
+    return y <= 0 ? "under a year" : y + (y === 1 ? " year" : " years");
+  }
+
+  /* ------------------------------------------------------------------ KPIs */
+  function renderKpis() {
+    var row = document.getElementById("kpi-row");
+    row.innerHTML = "";
+    var sigAcc = ME.sigA ? ME.sigL / ME.sigA : null;
+    var tdAcc = ME.tdA ? ME.tdL / ME.tdA : null;
+    var wins = ME.w, finishes = ME.ko + ME.sub;
+    var losses = ME.l, lFin = ME.kol + ME.subl;
+
+    var tiles = [
+      { lbl: "UFC fights", val: MY.length.toLocaleString(),
+        foot: UFC.year(ME.f) + "–" + UFC.year(ME.la) },
+      { lbl: "Record", val: wins + "-" + losses + "-" + ME.d,
+        foot: "W–L–D" + (ME.nc ? " · " + ME.nc + " no contest" + (ME.nc === 1 ? "" : "s") : "") },
+      { lbl: "Wins KO / Sub / Dec", val: ME.ko + " / " + ME.sub + " / " + ME.dec, cls: "sm",
+        foot: wins ? UFC.pct(finishes / wins, 0) + " finish rate" : "no wins on record" },
+      { lbl: "Losses KO / Sub / Dec", val: ME.kol + " / " + ME.subl + " / " + ME.decl, cls: "sm",
+        foot: losses ? UFC.pct(lFin / losses, 0) + " finished" : "no losses on record" },
+      { lbl: "Sig. strike acc.", val: sigAcc === null ? "—" : UFC.pct(sigAcc, 1),
+        foot: ME.sigL.toLocaleString() + " of " + ME.sigA.toLocaleString() + " landed" },
+      { lbl: "Takedown acc.", val: tdAcc === null ? "—" : UFC.pct(tdAcc, 1),
+        foot: ME.tdA ? ME.tdL + " of " + ME.tdA + " attempts" : "no takedowns attempted" },
+      { lbl: "Knockdowns", val: String(ME.kd),
+        foot: MY.length ? (ME.kd / MY.length).toFixed(2) + " per fight" : "—" }
+    ];
+    tiles.forEach(function (t) {
+      var d = document.createElement("div");
+      d.className = "kpi";
+      d.innerHTML = '<div class="lbl">' + t.lbl + '</div>' +
+        '<div class="val' + (t.cls ? " " + t.cls : "") + '">' + t.val + '</div>' +
+        '<div class="foot">' + t.foot + '</div>';
+      row.appendChild(d);
+    });
+  }
+
+  /* -------------------------------------------------------- market résumé */
+  function priced(f) { return f.oa !== null && f.oa !== undefined && f.ob !== null && f.ob !== undefined; }
+
+  function marketStats() {
+    var pickem = 0, pricedN = 0, best = null;
+    MY.forEach(function (f) {
+      if (!priced(f)) return;
+      pricedN++;
+      var mine = UFC.oddsFor(f, ME.i), theirs = UFC.oddsFor(f, UFC.opponentOf(f, ME.i));
+      if (mine === theirs) pickem++;
+      if (UFC.resultFor(f, ME.i) === "W" && mine > 0 && (!best || mine > best.odds)) {
+        best = { odds: mine, fight: f };
+      }
+    });
+    return { pickem: pickem, pricedN: pricedN, best: best };
+  }
+
+  function renderResume() {
+    var card = document.getElementById("resume-card");
+    var m = marketStats();
+    card.innerHTML = "";
+
+    if (!m.pricedN) {
+      var none = document.createElement("div");
+      none.innerHTML = '<h3 style="margin-bottom:4px">No closing lines on record</h3>' +
+        '<p class="cardnote" style="margin:0">' +
+        (MY.length === 1
+          ? escapeHtml(ME.n) + "'s only UFC bout does not fall"
+          : "None of " + escapeHtml(ME.n) + "'s " + MY.length + " UFC bouts fall") +
+        " inside the matched moneyline data" + (UFC.oddsCoverage ? " (" + UFC.fmtDate(UFC.oddsCoverage.from) + " – " +
+        UFC.fmtDate(UFC.oddsCoverage.to) + ")" : "") + ", so there is nothing to grade the market on. " +
+        "Every price in the history table below is shown as —.</p>";
+      card.appendChild(none);
+      return;
+    }
+
+    var favRate = ME.favN ? ME.favW / ME.favN : null;
+    var dogRate = ME.dogN ? ME.dogW / ME.dogN : null;
+    var grid = document.createElement("div");
+    grid.className = "resume-grid";
+    var cells = [
+      { lbl: "Times favoured", val: String(ME.favN),
+        foot: ME.favN ? ME.favW + " won · " + (ME.favN - ME.favW) + " lost" : "never the betting favourite" },
+      { lbl: "Win rate as favourite", val: favRate === null ? "—" : UFC.pct(favRate, 0),
+        foot: ME.favN ? "market got it right " + ME.favW + "/" + ME.favN : "—" },
+      { lbl: "Times underdog", val: String(ME.dogN),
+        foot: ME.dogN ? ME.dogW + " won · " + (ME.dogN - ME.dogW) + " lost" : "never an underdog" },
+      { lbl: "Win rate as underdog", val: dogRate === null ? "—" : UFC.pct(dogRate, 0),
+        foot: ME.dogN ? ME.dogW + " upset" + (ME.dogW === 1 ? "" : "s") + " pulled off" : "—" },
+      { lbl: "Priced bouts", val: m.pricedN + " / " + MY.length,
+        foot: m.pickem ? m.pickem + " pick'em (equal prices)" : "rest have no matched line" }
+    ];
+    cells.forEach(function (c) {
+      var d = document.createElement("div");
+      d.innerHTML = '<div class="lbl">' + c.lbl + '</div><div class="val">' + c.val + '</div>' +
+                    '<div class="foot">' + c.foot + '</div>';
+      grid.appendChild(d);
+    });
+    card.appendChild(grid);
+
+    var up = document.createElement("div");
+    up.className = "upset";
+    if (m.best) {
+      var f = m.best.fight;
+      var opp = DATA.fighters[UFC.opponentOf(f, ME.i)];
+      var ev = DATA.events[f.e];
+      up.innerHTML = "<b>Biggest upset:</b> won at <span class=\"big\">" + UFC.odds(m.best.odds) + "</span> " +
+        "(" + UFC.pct(UFC.impliedProb(m.best.odds), 0) + " implied) against " +
+        '<a href="fighter.html?id=' + opp.i + '">' + escapeHtml(opp.n) + "</a> — " +
+        f.m + ", " + UFC.fmtDate(f.d) + (ev ? " · " + escapeHtml(ev.n) : "") + ". " +
+        "A winning $100 stake returned " + UFC.money(UFC.americanProfit(m.best.odds, true)) + " profit.";
+    } else {
+      up.innerHTML = "<b>Biggest upset:</b> <span class=\"nodata\">none — no win at plus-money on a matched closing line.</span>";
+    }
+    card.appendChild(up);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ---------------------------------------------------------------- charts */
+  function drawTimeline(container) {
+    container.innerHTML = "";
+    if (!MY.length) { container.innerHTML = '<div class="empty-state">No fights on record.</div>'; return; }
+
+    var pts = [], net = 0;
+    MY.forEach(function (f, i) {
+      var res = UFC.resultFor(f, ME.i);
+      if (res === "W") net++; else if (res === "L") net--;
+      pts.push({ i: i, net: net, res: res, f: f });
+    });
+
+    var W = 340, H = 220, M = { t: 14, r: 14, b: 26, l: 30 };
+    var iw = W - M.l - M.r, ih = H - M.t - M.b;
+    var svg = UFC.el("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img",
+      "aria-label": "Running record over " + MY.length + " fights, ending at net " + net }, container);
+
+    var vMax = Math.max(1, Math.max.apply(null, pts.map(function (p) { return p.net; })));
+    var vMin = Math.min(0, Math.min.apply(null, pts.map(function (p) { return p.net; })));
+    var sx = function (i) { return pts.length < 2 ? M.l + iw / 2 : M.l + (i / (pts.length - 1)) * iw; };
+    var sy = function (v) { return M.t + (vMax - v) / ((vMax - vMin) || 1) * ih; };
+
+    UFC.niceTicks(vMin, vMax, 4).forEach(function (t) {
+      UFC.el("line", { x1: M.l, x2: W - M.r, y1: sy(t), y2: sy(t), stroke: UFC.css("--line"), "stroke-width": 1 }, svg);
+      UFC.el("text", { x: M.l - 6, y: sy(t) + 3.5, "text-anchor": "end", fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg)
+        .textContent = (t > 0 ? "+" : "") + t;
+    });
+    if (vMin < 0) UFC.el("line", { x1: M.l, x2: W - M.r, y1: sy(0), y2: sy(0), stroke: UFC.css("--ink-muted"), "stroke-width": 1, "stroke-dasharray": "4 3" }, svg);
+
+    var d = pts.map(function (p, i) { return (i === 0 ? "M" : "L") + sx(i).toFixed(1) + " " + sy(p.net).toFixed(1); }).join(" ");
+    UFC.el("path", { d: d, fill: "none", stroke: UFC.css("--series-1"), "stroke-width": 1.6, "stroke-linejoin": "round" }, svg);
+
+    var colorOf = { W: UFC.css("--good"), L: UFC.css("--critical"), D: UFC.css("--ink-muted"), NC: UFC.css("--ink-muted") };
+    pts.forEach(function (p, i) {
+      var dot = UFC.el("circle", { cx: sx(i), cy: sy(p.net), r: pts.length > 40 ? 2.4 : 3.4,
+        fill: colorOf[p.res], stroke: UFC.css("--surface"), "stroke-width": 1 }, svg);
+      var hit = UFC.el("circle", { cx: sx(i), cy: sy(p.net), r: 9, fill: "transparent" }, svg);
+      UFC.hoverTip(hit, function () {
+        var f = p.f, opp = DATA.fighters[UFC.opponentOf(f, ME.i)];
+        var mine = UFC.oddsFor(f, ME.i);
+        return [
+          UFC.ttHeader(UFC.fmtDate(f.d) + " — vs " + opp.n),
+          UFC.ttRow("Result", p.res + " · " + f.m, colorOf[p.res]),
+          UFC.ttRow("Running record", (p.net > 0 ? "+" : "") + p.net),
+          UFC.ttRow("Closing odds", mine === null || mine === undefined ? UFC.DASH : UFC.odds(mine))
+        ];
+      });
+      /* keyboard reachability without 100+ tab stops: first, last and every 5th */
+      if (!(i === 0 || i === pts.length - 1 || i % 5 === 0)) hit.tabIndex = -1;
+      dot.setAttribute("aria-hidden", "true");
+    });
+
+    /* x axis: first and last year */
+    UFC.el("text", { x: M.l, y: H - 8, fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg).textContent = UFC.year(MY[0].d);
+    UFC.el("text", { x: W - M.r, y: H - 8, "text-anchor": "end", fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg)
+      .textContent = UFC.year(MY[MY.length - 1].d);
+  }
+
+  function drawAccuracy(container) {
+    container.innerHTML = "";
+    var rows = [];
+    MY.forEach(function (f, i) {
+      var s = f.a === ME.i ? f.sa : f.sb;
+      if (!s || !s[2]) return;                    /* no attempts recorded */
+      rows.push({ i: i, acc: s[1] / s[2], landed: s[1], att: s[2], f: f });
+    });
+    if (!rows.length) {
+      container.innerHTML = '<div class="empty-state">No significant-strike attempts recorded for these bouts.</div>';
+      return;
+    }
+    var W = 340, H = 220, M = { t: 14, r: 14, b: 26, l: 34 };
+    var iw = W - M.l - M.r, ih = H - M.t - M.b;
+    var svg = UFC.el("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img",
+      "aria-label": "Significant strike accuracy per fight, career average " +
+        UFC.pct(ME.sigA ? ME.sigL / ME.sigA : 0, 1) }, container);
+
+    var sx = function (k) { return rows.length < 2 ? M.l + iw / 2 : M.l + (k / (rows.length - 1)) * iw; };
+    var sy = function (v) { return M.t + (1 - v) * ih; };
+
+    [0, .25, .5, .75, 1].forEach(function (t) {
+      UFC.el("line", { x1: M.l, x2: W - M.r, y1: sy(t), y2: sy(t), stroke: UFC.css("--line"), "stroke-width": 1 }, svg);
+      UFC.el("text", { x: M.l - 6, y: sy(t) + 3.5, "text-anchor": "end", fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg)
+        .textContent = Math.round(t * 100) + "%";
+    });
+
+    var avg = ME.sigA ? ME.sigL / ME.sigA : null;
+    if (avg !== null) {
+      UFC.el("line", { x1: M.l, x2: W - M.r, y1: sy(avg), y2: sy(avg), stroke: UFC.css("--ink-muted"),
+        "stroke-width": 1.3, "stroke-dasharray": "5 4" }, svg);
+    }
+
+    var d = rows.map(function (r, k) { return (k === 0 ? "M" : "L") + sx(k).toFixed(1) + " " + sy(r.acc).toFixed(1); }).join(" ");
+    UFC.el("path", { d: d, fill: "none", stroke: UFC.css("--series-1"), "stroke-width": 1.6, "stroke-linejoin": "round" }, svg);
+
+    rows.forEach(function (r, k) {
+      UFC.el("circle", { cx: sx(k), cy: sy(r.acc), r: rows.length > 40 ? 2.2 : 3.2, fill: UFC.css("--series-1"),
+        stroke: UFC.css("--surface"), "stroke-width": 1, "aria-hidden": "true" }, svg);
+      var hit = UFC.el("circle", { cx: sx(k), cy: sy(r.acc), r: 9, fill: "transparent" }, svg);
+      UFC.hoverTip(hit, function () {
+        var opp = DATA.fighters[UFC.opponentOf(r.f, ME.i)];
+        return [
+          UFC.ttHeader(UFC.fmtDate(r.f.d) + " — vs " + opp.n),
+          UFC.ttRow("Accuracy", UFC.pct(r.acc, 1), UFC.css("--series-1")),
+          UFC.ttRow("Landed / attempted", r.landed + " / " + r.att)
+        ];
+      });
+      if (!(k === 0 || k === rows.length - 1 || k % 5 === 0)) hit.tabIndex = -1;
+    });
+
+    UFC.el("text", { x: M.l, y: H - 8, fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg).textContent = UFC.year(rows[0].f.d);
+    UFC.el("text", { x: W - M.r, y: H - 8, "text-anchor": "end", fill: UFC.css("--ink-muted"), "font-size": 9.5 }, svg)
+      .textContent = UFC.year(rows[rows.length - 1].f.d);
+  }
+
+  function donutArc(cx, cy, ro, ri, a0, a1) {
+    var large = (a1 - a0) > Math.PI ? 1 : 0;
+    function p(r, a) { return [(cx + r * Math.cos(a)).toFixed(2), (cy + r * Math.sin(a)).toFixed(2)]; }
+    var p0 = p(ro, a0), p1 = p(ro, a1), p2 = p(ri, a1), p3 = p(ri, a0);
+    return "M" + p0[0] + " " + p0[1] +
+           " A" + ro + " " + ro + " 0 " + large + " 1 " + p1[0] + " " + p1[1] +
+           " L" + p2[0] + " " + p2[1] +
+           " A" + ri + " " + ri + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
+  }
+
+  function drawMethods(container) {
+    container.innerHTML = "";
+    var slices = [
+      { k: "KO/TKO", v: ME.ko, c: UFC.css("--series-2") },
+      { k: "Submission", v: ME.sub, c: UFC.css("--series-1") },
+      { k: "Decision", v: ME.dec, c: UFC.css("--accent") }
+    ].filter(function (s) { return s.v > 0; });
+    var total = slices.reduce(function (a, s) { return a + s.v; }, 0);
+
+    if (!total) {
+      container.innerHTML = '<div class="empty-state">No wins on record.</div>';
+      appendMethodTable(container);
+      return;
+    }
+
+    var S = 170, cx = S / 2, cy = S / 2, ro = 72, ri = 44;
+    var svg = UFC.el("svg", { viewBox: "0 0 " + S + " " + S, width: S, height: S, role: "img",
+      "aria-label": "Wins by method: " + slices.map(function (s) { return s.v + " " + s.k; }).join(", ") }, container);
+
+    if (slices.length === 1) {
+      UFC.el("circle", { cx: cx, cy: cy, r: ro, fill: slices[0].c }, svg);
+      UFC.el("circle", { cx: cx, cy: cy, r: ri, fill: UFC.css("--surface") }, svg);
+    } else {
+      var a = -Math.PI / 2;
+      slices.forEach(function (s) {
+        var a1 = a + (s.v / total) * Math.PI * 2;
+        var path = UFC.el("path", { d: donutArc(cx, cy, ro, ri, a, a1), fill: s.c,
+          stroke: UFC.css("--surface"), "stroke-width": 1.5 }, svg);
+        UFC.hoverTip(path, function () {
+          return [UFC.ttHeader(s.k), UFC.ttRow("Wins", String(s.v), s.c),
+                  UFC.ttRow("Share of wins", UFC.pct(s.v / total, 0))];
+        });
+        a = a1;
+      });
+    }
+    UFC.el("text", { x: cx, y: cy - 2, "text-anchor": "middle", fill: UFC.css("--ink"),
+      "font-size": 24, "font-weight": 700 }, svg).textContent = String(total);
+    UFC.el("text", { x: cx, y: cy + 15, "text-anchor": "middle", fill: UFC.css("--ink-muted"),
+      "font-size": 10.5 }, svg).textContent = total === 1 ? "win" : "wins";
+
+    var leg = document.createElement("div");
+    leg.className = "legend";
+    leg.style.flexDirection = "column";
+    leg.style.gap = "6px";
+    slices.forEach(function (s) {
+      var i = document.createElement("span");
+      i.className = "item";
+      i.innerHTML = '<span class="swatch sq" style="background:' + s.c + '"></span>' +
+        s.k + " · <b style=\"font-variant-numeric:tabular-nums\">" + s.v + "</b> (" + UFC.pct(s.v / total, 0) + ")";
+      leg.appendChild(i);
+    });
+    container.appendChild(leg);
+    appendMethodTable(container);
+  }
+
+  function appendMethodTable(container) {
+    var tbl = document.createElement("table");
+    tbl.className = "mini";
+    tbl.style.marginTop = "14px";
+    tbl.innerHTML = "<caption>Wins and losses by method</caption>" +
+      "<thead><tr><th>Method</th><th>Wins</th><th>Losses</th></tr></thead>" +
+      "<tbody>" +
+      "<tr><td>KO/TKO</td><td>" + ME.ko + "</td><td>" + ME.kol + "</td></tr>" +
+      "<tr><td>Submission</td><td>" + ME.sub + "</td><td>" + ME.subl + "</td></tr>" +
+      "<tr><td>Decision</td><td>" + ME.dec + "</td><td>" + ME.decl + "</td></tr>" +
+      "</tbody>";
+    container.appendChild(tbl);
+  }
+
+  /* --------------------------------------------------------- history table */
+  function renderHistory() {
+    var tbody = document.getElementById("hist-tbody");
+    tbody.innerHTML = "";
+    var rows = MY.slice().sort(function (a, b) {
+      if (a.d !== b.d) return a.d < b.d ? 1 : -1;
+      return (a.o || 0) - (b.o || 0);
+    });
+    var unpriced = 0;
+
+    rows.forEach(function (f) {
+      var opp = DATA.fighters[UFC.opponentOf(f, ME.i)];
+      var ev = DATA.events[f.e];
+      var res = UFC.resultFor(f, ME.i);
+      var mine = UFC.oddsFor(f, ME.i);
+      var hasOdds = mine !== null && mine !== undefined;
+      if (!hasOdds) unpriced++;
+
+      var tr = document.createElement("tr");
+      tr.className = res === "W" ? "is-win" : res === "L" ? "is-loss" : "";
+
+      tr.appendChild(UFC.td(UFC.fmtDate(f.d), "l"));
+
+      var tdOpp = document.createElement("td");
+      tdOpp.className = "l";
+      var aOpp = document.createElement("a");
+      aOpp.href = "fighter.html?id=" + opp.i;
+      aOpp.textContent = opp.n;
+      tdOpp.appendChild(aOpp);
+      if (f.t > 0) {
+        var tp = document.createElement("span");
+        tp.className = "pill title";
+        tp.style.marginLeft = "6px";
+        tp.textContent = f.t === 2 ? "INTERIM" : "TITLE";
+        tdOpp.appendChild(tp);
+      }
+      tr.appendChild(tdOpp);
+
+      var tdEv = document.createElement("td");
+      tdEv.className = "l";
+      if (ev) {
+        var aEv = document.createElement("a");
+        aEv.href = "betting.html#event-" + ev.i;
+        aEv.textContent = ev.n;
+        aEv.title = ev.n + " · " + UFC.fmtDate(ev.d) + " · " + ev.nf + " fights";
+        tdEv.appendChild(aEv);
+      } else { tdEv.textContent = UFC.DASH; }
+      tr.appendChild(tdEv);
+
+      var tdOdds = document.createElement("td");
+      tdOdds.className = "mono" + (hasOdds ? "" : " odds-na");
+      tdOdds.textContent = hasOdds ? UFC.odds(mine) : UFC.DASH;
+      if (!hasOdds) {
+        tdOdds.title = UFC.ODDS_COVERAGE_NOTE;
+        tdOdds.setAttribute("aria-label", "No closing odds on record");
+        tdOdds.tabIndex = 0;
+      }
+      tr.appendChild(tdOdds);
+
+      var tdImp = document.createElement("td");
+      tdImp.className = "mono" + (hasOdds ? "" : " odds-na");
+      tdImp.textContent = hasOdds ? UFC.pct(UFC.impliedProb(mine), 1) : UFC.DASH;
+      if (!hasOdds) tdImp.title = UFC.ODDS_COVERAGE_NOTE;
+      tr.appendChild(tdImp);
+
+      var tdRes = document.createElement("td");
+      tdRes.className = "c res";
+      var pill = document.createElement("span");
+      pill.className = "pill " + (res === "W" ? "win" : res === "L" ? "loss" : res === "D" ? "draw" : "nc");
+      pill.textContent = res;
+      tdRes.appendChild(pill);
+      tr.appendChild(tdRes);
+
+      tr.appendChild(UFC.td(f.m || UFC.DASH, "l"));
+      tr.appendChild(UFC.td(f.r === null || f.r === undefined ? UFC.DASH : String(f.r), "mono"));
+      tr.appendChild(UFC.td(f.tm || UFC.DASH, "mono"));
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("hist-count").textContent =
+      rows.length.toLocaleString() + (rows.length === 1 ? " bout" : " bouts") + " · " +
+      (rows.length - unpriced) + " with a closing line, " + unpriced + " without";
+    document.getElementById("hist-fmt").textContent = UFC.oddsFormatLabel();
+  }
+
+  /* ------------------------------------------------------------ orchestrate */
+  function renderAll() {
+    renderHeader();
+    renderKpis();
+    renderResume();
+    drawTimeline(document.getElementById("chart-timeline"));
+    drawAccuracy(document.getElementById("chart-accuracy"));
+    drawMethods(document.getElementById("chart-methods"));
+    renderHistory();
+  }
+
+  UFC.nav("fighters");
+
+  UFC.load().then(function (data) {
+    DATA = data;
+    if (fighterId === null || isNaN(fighterId) || fighterId < 0 || fighterId >= data.fighters.length) {
+      showMissing(rawId
+        ? 'No fighter with id <code>' + escapeHtml(rawId) + '</code>. Ids run 0–' + (data.fighters.length - 1) + '.'
+        : 'This page needs a fighter id, e.g. <code>fighter.html?id=1294</code> (Jon Jones).');
+      return;
+    }
+    ME = data.fighters[fighterId];
+    MY = (data.byFighter[fighterId] || []).slice().sort(function (a, b) {
+      if (a.d !== b.d) return a.d < b.d ? -1 : 1;
+      return (b.o || 0) - (a.o || 0);
+    });
+    document.getElementById("f-body").hidden = false;
+    renderAll();
+  })["catch"](function (err) {
+    showMissing("Could not load site data (" + escapeHtml(err.message || String(err)) +
+      "). Serve the <code>docs/</code> folder over http rather than opening the file directly.");
+    if (window.console) console.error(err);
+  });
+
+  /* theme flip / odds-format change → charts re-read CSS tokens, table re-formats */
+  window.addEventListener("ufc:repaint", function () {
+    if (ME) renderAll();
+  });
+})();
+</script>
+</body>
+</html>
