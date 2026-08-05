@@ -54,6 +54,16 @@ jobs:
     - name: Run scraper script
       run: Rscript Scraper.R
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Rebuild site data
+      run: |
+        pip install --quiet pandas numpy
+        python3 scripts/build_site_data.py
+
     - name: Commit and push scraped data
       run: |
         git config --local user.name github-actions
@@ -62,6 +72,7 @@ jobs:
         if git status --porcelain | grep .; then
           git add Data/*
           git add logs.txt
+          git add docs/data/*
           git commit -am "GH ACTION Autorun $(date)"
           git push origin main
         else
