@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-04",
+  "generated": "2026-08-05",
   "overall": {
     "total_fights_in_fight_data": 8679,
-    "fights_in_moneyline_date_window": 6707,
+    "fights_in_moneyline_date_window": 6543,
     "matched_with_moneyline": 5648,
     "decisive_matched": 5549,
-    "draws": 64,
-    "no_contests": 35,
-    "pickem_fights": 32,
+    "draws": 39,
+    "no_contests": 60,
+    "pickem_fights": 33,
     "favorite_win_rate": 0.6621,
     "underdog_win_rate": 0.3379,
-    "n_favorite_decisions": 5517,
+    "n_favorite_decisions": 5516,
     "avg_overround": 1.0607
   },
   "calibration_deciles": [
@@ -18,306 +18,306 @@
       "bucket_lo": -0.001,
       "bucket_hi": 0.1,
       "n": 10,
-      "avg_predicted": 0.0949,
+      "avg_predicted": 0.09493297548878277,
       "actual_win_rate": 0.0
     },
     {
       "bucket_lo": 0.1,
       "bucket_hi": 0.2,
       "n": 376,
-      "avg_predicted": 0.1689,
-      "actual_win_rate": 0.1277
+      "avg_predicted": 0.16889834558871916,
+      "actual_win_rate": 0.1276595744680851
     },
     {
       "bucket_lo": 0.2,
       "bucket_hi": 0.3,
       "n": 1329,
-      "avg_predicted": 0.2548,
-      "actual_win_rate": 0.2122
+      "avg_predicted": 0.2547993109083326,
+      "actual_win_rate": 0.21218961625282168
     },
     {
       "bucket_lo": 0.3,
       "bucket_hi": 0.4,
-      "n": 1977,
-      "avg_predicted": 0.3515,
-      "actual_win_rate": 0.349
+      "n": 1975,
+      "avg_predicted": 0.35146362686686244,
+      "actual_win_rate": 0.34835443037974684
     },
     {
       "bucket_lo": 0.4,
       "bucket_hi": 0.5,
-      "n": 1889,
-      "avg_predicted": 0.4472,
-      "actual_win_rate": 0.4637
+      "n": 1892,
+      "avg_predicted": 0.4471435725729596,
+      "actual_win_rate": 0.4645877378435518
     },
     {
       "bucket_lo": 0.5,
       "bucket_hi": 0.6,
-      "n": 1826,
-      "avg_predicted": 0.5547,
-      "actual_win_rate": 0.5378
+      "n": 1827,
+      "avg_predicted": 0.5547916588352274,
+      "actual_win_rate": 0.5369458128078818
     },
     {
       "bucket_lo": 0.6,
       "bucket_hi": 0.7,
-      "n": 1976,
-      "avg_predicted": 0.6485,
-      "actual_win_rate": 0.6508
+      "n": 1974,
+      "avg_predicted": 0.6485609609614725,
+      "actual_win_rate": 0.6514690982776089
     },
     {
       "bucket_lo": 0.7,
       "bucket_hi": 0.8,
       "n": 1330,
-      "avg_predicted": 0.7452,
-      "actual_win_rate": 0.788
+      "avg_predicted": 0.7452418915810721,
+      "actual_win_rate": 0.7879699248120301
     },
     {
       "bucket_lo": 0.8,
       "bucket_hi": 0.9,
       "n": 375,
-      "avg_predicted": 0.8312,
+      "avg_predicted": 0.8311845921563775,
       "actual_win_rate": 0.872
     },
     {
       "bucket_lo": 0.9,
       "bucket_hi": 1.0,
       "n": 10,
-      "avg_predicted": 0.9051,
+      "avg_predicted": 0.9050670245112172,
       "actual_win_rate": 1.0
     }
   ],
   "favorite_odds_bands": [
     {
-      "label": "\u2264 -500",
+      "label": "≤ -500",
       "lo": -100000,
       "hi": -500,
       "n": 532,
-      "avg_fav_odds": -754.7,
-      "implied_prob_fair": 0.818,
-      "actual_win_rate": 0.8759
+      "avg_fav_odds": -754.6503759398496,
+      "implied_prob_fair": 0.8179952325409052,
+      "actual_win_rate": 0.8759398496240601
     },
     {
       "label": "-499 to -300",
-      "lo": -500,
+      "lo": -499,
       "hi": -300,
       "n": 1087,
-      "avg_fav_odds": -373.0,
-      "implied_prob_fair": 0.7423,
-      "actual_win_rate": 0.7847
+      "avg_fav_odds": -373.0321987120515,
+      "implied_prob_fair": 0.7423398866805526,
+      "actual_win_rate": 0.7847286108555658
     },
     {
-      "label": "-299 to -250",
-      "lo": -300,
-      "hi": -250,
-      "n": 629,
-      "avg_fav_odds": -268.2,
-      "implied_prob_fair": 0.6871,
-      "actual_win_rate": 0.6852
-    },
-    {
-      "label": "-249 to -200",
-      "lo": -250,
+      "label": "-299 to -200",
+      "lo": -299,
       "hi": -200,
-      "n": 904,
-      "avg_fav_odds": -220.3,
-      "implied_prob_fair": 0.6486,
-      "actual_win_rate": 0.6549
+      "n": 1534,
+      "avg_fav_odds": -239.9250325945241,
+      "implied_prob_fair": 0.6643482630674374,
+      "actual_win_rate": 0.6675358539765319
     },
     {
-      "label": "-199 to -175",
-      "lo": -200,
-      "hi": -175,
-      "n": 565,
-      "avg_fav_odds": -184.0,
-      "implied_prob_fair": 0.6121,
-      "actual_win_rate": 0.6018
-    },
-    {
-      "label": "-174 to -150",
-      "lo": -175,
+      "label": "-199 to -150",
+      "lo": -199,
       "hi": -150,
-      "n": 815,
-      "avg_fav_odds": -160.5,
-      "implied_prob_fair": 0.5818,
-      "actual_win_rate": 0.5791
+      "n": 1381,
+      "avg_fav_odds": -170.06082548877626,
+      "implied_prob_fair": 0.5941217652128511,
+      "actual_win_rate": 0.5879797248370746
     },
     {
-      "label": "-149 to -135",
-      "lo": -150,
-      "hi": -135,
-      "n": 448,
-      "avg_fav_odds": -140.7,
-      "implied_prob_fair": 0.5497,
-      "actual_win_rate": 0.5335
+      "label": "-149 to -110",
+      "lo": -149,
+      "hi": -110,
+      "n": 978,
+      "avg_fav_odds": -131.44887525562373,
+      "implied_prob_fair": 0.533809230434519,
+      "actual_win_rate": 0.5051124744376279
     },
     {
-      "label": "-134 to -120",
-      "lo": -135,
-      "hi": -120,
-      "n": 418,
-      "avg_fav_odds": -126.0,
-      "implied_prob_fair": 0.5238,
-      "actual_win_rate": 0.4904
+      "label": "-109 to +109",
+      "lo": -109,
+      "hi": 109,
+      "n": 4,
+      "avg_fav_odds": -107.75,
+      "implied_prob_fair": 0.506391133402191,
+      "actual_win_rate": 0.75
     },
     {
-      "label": "-119 to -100",
-      "lo": -120,
-      "hi": -100,
-      "n": 119,
-      "avg_fav_odds": -115.2,
-      "implied_prob_fair": 0.5081,
-      "actual_win_rate": 0.4622
+      "label": "+110 to +149",
+      "lo": 110,
+      "hi": 149,
+      "n": 0,
+      "avg_fav_odds": 0.0,
+      "implied_prob_fair": 0.0,
+      "actual_win_rate": 0.0
+    },
+    {
+      "label": "+150 to +249",
+      "lo": 150,
+      "hi": 249,
+      "n": 0,
+      "avg_fav_odds": 0.0,
+      "implied_prob_fair": 0.0,
+      "actual_win_rate": 0.0
+    },
+    {
+      "label": "≥ +250",
+      "lo": 250,
+      "hi": 100000,
+      "n": 0,
+      "avg_fav_odds": 0.0,
+      "implied_prob_fair": 0.0,
+      "actual_win_rate": 0.0
     }
   ],
   "roi_flat_100_stake": {
     "always_favorite": {
-      "n_fights": 5614,
-      "total_staked": 561400.0,
-      "total_profit": -27230.45,
-      "roi_pct": -4.85
+      "n_fights": 5516,
+      "total_staked": 551600.0,
+      "total_profit": -27315.22,
+      "roi_pct": -4.95
     },
     "always_underdog": {
-      "n_fights": 5614,
-      "total_staked": 561400.0,
-      "total_profit": -57900.59,
-      "roi_pct": -10.31
+      "n_fights": 5516,
+      "total_staked": 551600.0,
+      "total_profit": -57801.08,
+      "roi_pct": -10.48
     }
   },
   "roi_by_year": [
     {
       "year": 2007,
-      "n": 79,
-      "fav_profit": 549.16,
-      "dog_profit": -2439.26,
-      "fav_cum_roi_pct": 6.95,
-      "dog_cum_roi_pct": -30.88
+      "n": 78,
+      "fav_profit": 549.06,
+      "dog_profit": -2439.76,
+      "fav_cum_roi_pct": 7.04,
+      "dog_cum_roi_pct": -31.28
     },
     {
       "year": 2008,
       "n": 180,
-      "fav_profit": -718.14,
-      "dog_profit": -1994.0,
-      "fav_cum_roi_pct": -0.65,
-      "dog_cum_roi_pct": -17.12
+      "fav_profit": -718.27,
+      "dog_profit": -1993.0,
+      "fav_cum_roi_pct": -0.66,
+      "dog_cum_roi_pct": -17.18
     },
     {
       "year": 2009,
-      "n": 193,
-      "fav_profit": -1435.12,
+      "n": 191,
+      "fav_profit": -1435.51,
       "dog_profit": -252.23,
-      "fav_cum_roi_pct": -3.55,
-      "dog_cum_roi_pct": -10.37
+      "fav_cum_roi_pct": -3.57,
+      "dog_cum_roi_pct": -10.43
     },
     {
       "year": 2010,
-      "n": 216,
-      "fav_profit": -1048.55,
-      "dog_profit": -1062.75,
-      "fav_cum_roi_pct": -3.97,
-      "dog_cum_roi_pct": -8.61
+      "n": 213,
+      "fav_profit": -1049.28,
+      "dog_profit": -1064.75,
+      "fav_cum_roi_pct": -4.01,
+      "dog_cum_roi_pct": -8.69
     },
     {
       "year": 2011,
-      "n": 266,
-      "fav_profit": -247.45,
-      "dog_profit": -3298.16,
-      "fav_cum_roi_pct": -3.11,
-      "dog_cum_roi_pct": -9.69
+      "n": 263,
+      "fav_profit": -247.51,
+      "dog_profit": -3298.66,
+      "fav_cum_roi_pct": -3.14,
+      "dog_cum_roi_pct": -9.78
     },
     {
       "year": 2012,
-      "n": 308,
-      "fav_profit": -1421.8,
-      "dog_profit": -1806.89,
-      "fav_cum_roi_pct": -3.48,
-      "dog_cum_roi_pct": -8.74
+      "n": 301,
+      "fav_profit": -1422.01,
+      "dog_profit": -1804.1,
+      "fav_cum_roi_pct": -3.53,
+      "dog_cum_roi_pct": -8.85
     },
     {
       "year": 2013,
-      "n": 344,
-      "fav_profit": -897.92,
-      "dog_profit": -5344.01,
-      "fav_cum_roi_pct": -3.29,
-      "dog_cum_roi_pct": -10.21
+      "n": 336,
+      "fav_profit": -898.11,
+      "dog_profit": -5345.12,
+      "fav_cum_roi_pct": -3.34,
+      "dog_cum_roi_pct": -10.37
     },
     {
       "year": 2014,
-      "n": 436,
-      "fav_profit": -1834.38,
-      "dog_profit": -3825.18,
-      "fav_cum_roi_pct": -3.49,
-      "dog_cum_roi_pct": -9.9
+      "n": 429,
+      "fav_profit": -1834.42,
+      "dog_profit": -3824.43,
+      "fav_cum_roi_pct": -3.54,
+      "dog_cum_roi_pct": -10.06
     },
     {
       "year": 2015,
-      "n": 411,
-      "fav_profit": -4993.11,
-      "dog_profit": 2465.18,
-      "fav_cum_roi_pct": -4.95,
-      "dog_cum_roi_pct": -7.22
+      "n": 403,
+      "fav_profit": -4992.62,
+      "dog_profit": 2462.43,
+      "fav_cum_roi_pct": -5.03,
+      "dog_cum_roi_pct": -7.33
     },
     {
       "year": 2016,
-      "n": 423,
-      "fav_profit": -2344.51,
-      "dog_profit": -2678.2,
-      "fav_cum_roi_pct": -5.04,
-      "dog_cum_roi_pct": -7.09
+      "n": 412,
+      "fav_profit": -2428.5,
+      "dog_profit": -2577.52,
+      "fav_cum_roi_pct": -5.16,
+      "dog_cum_roi_pct": -7.18
     },
     {
       "year": 2017,
-      "n": 401,
-      "fav_profit": -705.15,
-      "dog_profit": -4633.04,
-      "fav_cum_roi_pct": -4.64,
-      "dog_cum_roi_pct": -7.64
+      "n": 392,
+      "fav_profit": -705.6,
+      "dog_profit": -4632.03,
+      "fav_cum_roi_pct": -4.75,
+      "dog_cum_roi_pct": -7.75
     },
     {
       "year": 2018,
-      "n": 399,
-      "fav_profit": -1619.33,
-      "dog_profit": -6441.51,
-      "fav_cum_roi_pct": -4.57,
-      "dog_cum_roi_pct": -8.56
+      "n": 394,
+      "fav_profit": -1618.21,
+      "dog_profit": -6440.46,
+      "fav_cum_roi_pct": -4.68,
+      "dog_cum_roi_pct": -8.69
     },
     {
       "year": 2019,
-      "n": 453,
-      "fav_profit": -3760.5,
-      "dog_profit": -3005.21,
-      "fav_cum_roi_pct": -4.98,
-      "dog_cum_roi_pct": -8.35
+      "n": 444,
+      "fav_profit": -3761.11,
+      "dog_profit": -3007.33,
+      "fav_cum_roi_pct": -5.09,
+      "dog_cum_roi_pct": -8.48
     },
     {
       "year": 2020,
-      "n": 426,
-      "fav_profit": -1151.39,
-      "dog_profit": -5006.29,
-      "fav_cum_roi_pct": -4.77,
-      "dog_cum_roi_pct": -8.67
+      "n": 414,
+      "fav_profit": -1151.2,
+      "dog_profit": -5006.35,
+      "fav_cum_roi_pct": -4.88,
+      "dog_cum_roi_pct": -8.81
     },
     {
       "year": 2021,
-      "n": 440,
-      "fav_profit": -1811.06,
-      "dog_profit": -8059.31,
-      "fav_cum_roi_pct": -4.71,
-      "dog_cum_roi_pct": -9.52
+      "n": 434,
+      "fav_profit": -1810.47,
+      "dog_profit": -8058.56,
+      "fav_cum_roi_pct": -4.82,
+      "dog_cum_roi_pct": -9.68
     },
     {
       "year": 2022,
-      "n": 409,
-      "fav_profit": -2579.0,
-      "dog_profit": -6730.17,
-      "fav_cum_roi_pct": -4.83,
-      "dog_cum_roi_pct": -10.05
+      "n": 406,
+      "fav_profit": -2579.25,
+      "dog_profit": -6729.67,
+      "fav_cum_roi_pct": -4.93,
+      "dog_cum_roi_pct": -10.21
     },
     {
       "year": 2023,
-      "n": 230,
+      "n": 226,
       "fav_profit": -1212.21,
       "dog_profit": -3789.55,
-      "fav_cum_roi_pct": -4.85,
-      "dog_cum_roi_pct": -10.31
+      "fav_cum_roi_pct": -4.95,
+      "dog_cum_roi_pct": -10.48
     }
   ],
   "favorite_win_rate_by_weight_class": [
@@ -328,13 +328,8 @@
     },
     {
       "weight_class": "Welterweight",
-      "n": 950,
-      "favorite_win_rate": 0.6505
-    },
-    {
-      "weight_class": "Heavyweight",
-      "n": 895,
-      "favorite_win_rate": 0.6603
+      "n": 949,
+      "favorite_win_rate": 0.6502
     },
     {
       "weight_class": "Middleweight",
@@ -350,6 +345,16 @@
       "weight_class": "Featherweight",
       "n": 609,
       "favorite_win_rate": 0.6322
+    },
+    {
+      "weight_class": "Heavyweight",
+      "n": 453,
+      "favorite_win_rate": 0.6733
+    },
+    {
+      "weight_class": "Light Heavyweight",
+      "n": 442,
+      "favorite_win_rate": 0.6471
     },
     {
       "weight_class": "Flyweight",
@@ -370,8 +375,8 @@
   "favorite_win_rate_by_gender": [
     {
       "gender": "M",
-      "n": 4928,
-      "favorite_win_rate": 0.664
+      "n": 4927,
+      "favorite_win_rate": 0.6639
     },
     {
       "gender": "W",
@@ -380,17 +385,21 @@
     }
   ],
   "method_distribution_when_favorite_wins": {
-    "Decision": 1738,
-    "KO/TKO": 1159,
+    "Decision - Unanimous": 1422,
+    "KO/TKO": 1158,
     "Submission": 715,
-    "TKO": 38,
+    "Decision - Split": 295,
+    "TKO - Doctor's Stoppage": 38,
+    "Decision - Majority": 21,
     "DQ": 3
   },
   "method_distribution_when_underdog_wins": {
-    "Decision": 942,
+    "Decision - Unanimous": 660,
     "KO/TKO": 574,
     "Submission": 325,
-    "TKO": 14,
+    "Decision - Split": 265,
+    "Decision - Majority": 17,
+    "TKO - Doctor's Stoppage": 14,
     "DQ": 9
   },
   "date_range": {
