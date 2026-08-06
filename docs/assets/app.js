@@ -296,9 +296,11 @@
   /* Pages that exist in docs/. Add to this list as new pages ship — every page
      picks the nav up from here, so links stay in sync site-wide. */
   var NAV_ITEMS = [
-    { id: "home",     label: "Home",     href: "index.html" },
-    { id: "fighters", label: "Fighters", href: "fighters.html" },
-    { id: "betting",  label: "Odds",     href: "betting.html" }
+    { id: "home",         label: "Home",         href: "index.html" },
+    { id: "fighters",     label: "Fighters",     href: "fighters.html" },
+    { id: "events",       label: "Events",       href: "events.html" },
+    { id: "betting",      label: "Odds",         href: "betting.html" },
+    { id: "leaderboards", label: "Leaderboards", href: "leaderboards.html" }
   ];
   UFC.navItems = NAV_ITEMS;
 

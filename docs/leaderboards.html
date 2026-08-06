@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboards · UFC_Data</title>
+<meta name="description" content="UFC statistical leaders: most wins, most finishes, knockdowns, striking and takedown accuracy, submission attempts, the biggest closing-odds upsets and the busiest referees.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a8681a'/%3E%3Crect x='7' y='20' width='18' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  /* page-local layout only — everything visual comes from assets/site.css */
+  .toolbar{
+    position: sticky; top: 46px; z-index: 20;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar .inner{
+    max-width: 1180px; margin: 0 auto; padding: 10px 20px;
+    display:flex; flex-wrap:wrap; align-items:center; gap: 10px 16px;
+  }
+  .toolbar label{ font-size:12px; font-weight:600; color: var(--ink-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .toolbar .grp{ display:flex; align-items:center; gap:8px; }
+  .toolbar .note{ margin-left:auto; font-size:12.5px; color: var(--ink-muted); }
+  .toolbar .note b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+  @media (max-width: 720px){ .toolbar{ position: static; } }
+
+  /* min-width:0 stops the nowrap table inside from setting the grid track's
+     floor — without it the card refuses to shrink and the page scrolls sideways */
+  .lb-card{ padding:16px 16px 12px; min-width:0; }
+  .lb-card h3{ display:flex; align-items:baseline; gap:8px; }
+  .lb-card h3 .rank-of{ font:600 11px/1 system-ui,sans-serif; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .lb-card table.odds tbody td{ padding:4px 8px; }
+  .lb-card table.odds thead th{ padding:6px 8px; }
+  td.rk{ color:var(--ink-muted); width:1%; }
+  td.rk.top1{ color:var(--accent-ink); font-weight:700; }
+  .thresh{ font-size:11.5px; color:var(--ink-muted); margin:0 0 10px; }
+  .thresh b{ color:var(--ink-2); }
+  .jump{ display:flex; flex-wrap:wrap; gap:6px; margin:-4px 2px 18px; }
+  .jump a{
+    font:600 11.5px/1 system-ui,sans-serif; text-decoration:none; color:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:6px; padding:6px 9px;
+  }
+  .jump a:hover{ color:var(--ink); border-color:var(--ink-muted); }
+  .val-strong{ font-weight:700; color:var(--ink); }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="kicker">UFC_Data · Leaderboards</p>
+      <h1>Statistical leaders</h1>
+      <p class="sub">Career leaders across the whole database, plus the biggest closing-odds upsets on record and
+        the officials who have worked the most bouts. Every board is a top 15 and states its own minimum.</p>
+    </div>
+    <div class="source-note">
+      <span id="hdr-fighters">–</span> fighters · <span id="hdr-fights">–</span> bouts<br>
+      Closing odds <span id="hdr-cov">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="inner">
+    <div class="grp">
+      <label for="minf">Minimum UFC fights</label>
+      <select id="minf" aria-label="Minimum number of UFC fights for the career leaderboards">
+        <option value="1">1+</option>
+        <option value="3">3+</option>
+        <option value="5" selected>5+</option>
+        <option value="10">10+</option>
+        <option value="15">15+</option>
+      </select>
+    </div>
+    <span class="note">Applies to the eight career boards · <b id="eligible">–</b> fighters qualify</span>
+  </div>
+</div>
+
+<div class="shell">
+
+  <nav class="jump" id="jump" aria-label="Jump to a leaderboard" style="margin-top:20px"></nav>
+
+  <div class="grid-2" id="boards"></div>
+
+  <h2 class="section-title" id="sec-upsets">Biggest upsets</h2>
+  <p class="section-desc">Wins at the longest positive closing price on record. One row per fight — the winner was
+    priced at plus-money, so a $100 stake returned the profit shown. Restricted to the
+    <span id="ups-window">–</span> odds window, because a fight with no matched price cannot be graded.</p>
+  <div class="card" style="padding:14px 14px 10px">
+    <div class="table-frozen">
+      <table class="odds" id="ups-table">
+        <thead>
+          <tr>
+            <th class="l" scope="col">Winner</th>
+            <th scope="col">Closing odds</th>
+            <th scope="col">Implied</th>
+            <th scope="col">$100 returns</th>
+            <th class="l" scope="col">Beat</th>
+            <th scope="col">Their price</th>
+            <th class="l" scope="col">Event</th>
+            <th class="l" scope="col">Date</th>
+            <th class="l" scope="col">Method</th>
+          </tr>
+        </thead>
+        <tbody id="ups-tbody"></tbody>
+      </table>
+    </div>
+    <p class="thresh" style="margin:10px 2px 4px">No minimum applied — every priced bout in the database is
+      eligible. Odds shown in <b id="ups-fmt">American</b> format.</p>
+  </div>
+
+  <h2 class="section-title" id="sec-refs">Busiest referees</h2>
+  <p class="section-desc">Officials by number of bouts worked. Taken from the referee field on the raw scrape;
+    <span id="ref-unknown">–</span> bouts have no referee on record and are excluded.</p>
+  <div class="card" style="padding:14px 14px 10px">
+    <div class="table-frozen">
+      <table class="odds" id="ref-table">
+        <thead>
+          <tr>
+            <th class="l" scope="col">Referee</th>
+            <th scope="col">Bouts</th>
+            <th scope="col">Cards</th>
+            <th scope="col">Share of all bouts</th>
+            <th scope="col">Finishes</th>
+            <th scope="col">Finish rate</th>
+            <th scope="col">Title bouts</th>
+            <th class="l" scope="col">Active</th>
+          </tr>
+        </thead>
+        <tbody id="ref-tbody"></tbody>
+      </table>
+    </div>
+    <p class="thresh" style="margin:10px 2px 4px">Top 15 of <b id="ref-total">–</b> named officials.
+      “Finishes” counts bouts that did not go to the judges — it reflects the fights they were assigned,
+      not their stoppage tendencies.</p>
+  </div>
+
+  <footer>
+    <strong>Reading these boards.</strong> Everything here is career-to-date <em>inside the UFC</em>: bouts fought
+    elsewhere are not in this database, so totals will differ from a fighter's full professional record.
+    <ul>
+      <li>Rate boards (finish rate, striking accuracy, takedown accuracy) carry a volume minimum as well as the
+        fight minimum, stated on each card. Without one they fill up with one-fight fighters at 100%.</li>
+      <li id="foot-coverage">–</li>
+      <li>Knockdowns, strikes, takedowns, submission attempts and reversals are summed from the official
+        per-fight scorecards. Early cards frequently have partial or zero counts, so pre-2001 fighters are
+        under-credited.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TOP = 15;
+  var DATA = null, ROWS = [];
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function priced(f) { return f.oa !== null && f.oa !== undefined && f.ob !== null && f.ob !== undefined; }
+  function num(v) { return v === null || v === undefined ? UFC.DASH : v.toLocaleString(); }
+
+  /* ----------------------------------------------------------- board specs */
+  var BOARDS = [
+    {
+      id: "wins", title: "Most wins",
+      note: "Total UFC wins. Draws and no-contests are excluded from the record.",
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights."; },
+      value: function (r) { return r.f.w; },
+      valLabel: "Wins",
+      ctxLabel: "Record",
+      ctx: function (r) { return UFC.record(r.f); },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "finishes", title: "Most finishes",
+      note: "Wins by KO/TKO or submission — decisions excluded.",
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights."; },
+      value: function (r) { return r.fin; },
+      valLabel: "Finishes",
+      ctxLabel: "KO / Sub",
+      ctx: function (r) { return r.f.ko + " / " + r.f.sub; },
+      extraLabel: "Wins", extra: function (r) { return r.f.w; }
+    },
+    {
+      id: "finrate", title: "Highest finish rate",
+      note: "Share of a fighter's wins that ended inside the distance.",
+      minWins: 5,
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights and <b>5</b> UFC wins."; },
+      eligible: function (r) { return r.f.w >= 5; },
+      value: function (r) { return r.finRate; },
+      fmt: function (v) { return UFC.pct(v, 1); },
+      valLabel: "Finish %",
+      ctxLabel: "Finishes",
+      ctx: function (r) { return r.fin + " of " + r.f.w; },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "kd", title: "Most knockdowns",
+      note: "Knockdowns scored across all UFC bouts.",
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights."; },
+      value: function (r) { return r.f.kd; },
+      valLabel: "KD",
+      ctxLabel: "Per fight",
+      ctx: function (r) { return (r.f.kd / r.f.nf).toFixed(2); },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "sigacc", title: "Best significant-strike accuracy",
+      note: "Significant strikes landed ÷ attempted, career totals.",
+      minAtt: 500,
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights and <b>500</b> significant strikes attempted."; },
+      eligible: function (r) { return r.f.sigA >= 500; },
+      value: function (r) { return r.sig; },
+      fmt: function (v) { return UFC.pct(v, 1); },
+      valLabel: "Sig. acc",
+      ctxLabel: "Landed / att.",
+      ctx: function (r) { return r.f.sigL.toLocaleString() + " / " + r.f.sigA.toLocaleString(); },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "tdacc", title: "Highest takedown accuracy",
+      note: "Takedowns landed ÷ attempted, career totals.",
+      minAtt: 20,
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights and <b>20</b> takedowns attempted."; },
+      eligible: function (r) { return r.f.tdA >= 20; },
+      value: function (r) { return r.td; },
+      fmt: function (v) { return UFC.pct(v, 1); },
+      valLabel: "TD acc",
+      ctxLabel: "Landed / att.",
+      ctx: function (r) { return r.f.tdL + " / " + r.f.tdA; },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "tds", title: "Most takedowns landed",
+      note: "Total takedowns landed across all UFC bouts.",
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights."; },
+      value: function (r) { return r.f.tdL; },
+      valLabel: "TD",
+      ctxLabel: "Accuracy",
+      ctx: function (r) { return r.f.tdA ? UFC.pct(r.f.tdL / r.f.tdA, 1) : UFC.DASH; },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    },
+    {
+      id: "subs", title: "Most submission attempts",
+      note: "Submission attempts recorded, whether or not they finished the fight.",
+      thresh: function (m) { return "Minimum <b>" + m + "</b> UFC fights."; },
+      value: function (r) { return r.f.sba; },
+      valLabel: "Sub att.",
+      ctxLabel: "Sub wins",
+      ctx: function (r) { return String(r.f.sub); },
+      extraLabel: "Fights", extra: function (r) { return r.f.nf; }
+    }
+  ];
+
+  /* ------------------------------------------------------------ rendering */
+  function buildBoardShells() {
+    var host = document.getElementById("boards");
+    host.innerHTML = "";
+    var jump = document.getElementById("jump");
+    jump.innerHTML = "";
+
+    BOARDS.forEach(function (b) {
+      var card = document.createElement("div");
+      card.className = "card lb-card";
+      card.id = "board-" + b.id;
+      card.innerHTML =
+        '<h3>' + b.title + ' <span class="rank-of">Top ' + TOP + '</span></h3>' +
+        '<p class="cardnote">' + b.note + '</p>' +
+        '<p class="thresh" id="thresh-' + b.id + '">–</p>' +
+        '<div class="table-frozen"><table class="odds">' +
+        '<caption class="visually-hidden">' + b.title + '</caption>' +
+        '<thead><tr>' +
+        '<th class="l" scope="col">#</th>' +
+        '<th class="l" scope="col">Fighter</th>' +
+        '<th scope="col">' + b.valLabel + '</th>' +
+        '<th scope="col">' + b.ctxLabel + '</th>' +
+        '<th scope="col">' + b.extraLabel + '</th>' +
+        '</tr></thead><tbody id="tb-' + b.id + '"></tbody></table></div>';
+      host.appendChild(card);
+
+      var a = document.createElement("a");
+      a.href = "#board-" + b.id;
+      a.textContent = b.title;
+      jump.appendChild(a);
+    });
+
+    [["#sec-upsets", "Biggest upsets"], ["#sec-refs", "Busiest referees"]].forEach(function (p) {
+      var a = document.createElement("a");
+      a.href = p[0];
+      a.textContent = p[1];
+      jump.appendChild(a);
+    });
+  }
+
+  function fighterCell(f) {
+    var td = document.createElement("td");
+    td.className = "l";
+    var a = document.createElement("a");
+    a.href = "fighter.html?id=" + f.i;
+    a.textContent = f.n;
+    a.title = f.n + " — " + UFC.record(f) + " · " + UFC.year(f.f) + "–" + UFC.year(f.la);
+    td.appendChild(a);
+    return td;
+  }
+
+  function renderBoards() {
+    var minf = +document.getElementById("minf").value;
+    var pool = ROWS.filter(function (r) { return r.f.nf >= minf; });
+    document.getElementById("eligible").textContent = pool.length.toLocaleString();
+
+    BOARDS.forEach(function (b) {
+      var rows = pool.filter(function (r) {
+        if (b.eligible && !b.eligible(r)) return false;
+        var v = b.value(r);
+        return v !== null && v !== undefined && !isNaN(v);
+      });
+      rows.sort(function (x, y) {
+        var d = b.value(y) - b.value(x);
+        if (d) return d;
+        if (y.f.nf !== x.f.nf) return y.f.nf - x.f.nf;   /* volume breaks ties */
+        return x.f.n < y.f.n ? -1 : 1;
+      });
+      rows = rows.slice(0, TOP);
+
+      document.getElementById("thresh-" + b.id).innerHTML =
+        b.thresh(minf) + " Ties broken by number of fights.";
+
+      var tb = document.getElementById("tb-" + b.id);
+      tb.innerHTML = "";
+      if (!rows.length) {
+        var tr0 = document.createElement("tr");
+        var td0 = document.createElement("td");
+        td0.colSpan = 5;
+        td0.className = "empty-state";
+        td0.textContent = "No fighter clears this board's minimums.";
+        tr0.appendChild(td0);
+        tb.appendChild(tr0);
+        return;
+      }
+      rows.forEach(function (r, i) {
+        var tr = document.createElement("tr");
+        var rk = document.createElement("td");
+        rk.className = "l mono rk" + (i === 0 ? " top1" : "");
+        rk.textContent = String(i + 1);
+        tr.appendChild(rk);
+        tr.appendChild(fighterCell(r.f));
+
+        var v = b.value(r);
+        var tdV = document.createElement("td");
+        tdV.className = "mono val-strong";
+        tdV.textContent = b.fmt ? b.fmt(v) : num(v);
+        tr.appendChild(tdV);
+
+        tr.appendChild(UFC.td(b.ctx(r), "mono"));
+        tr.appendChild(UFC.td(String(b.extra(r)), "mono"));
+        tb.appendChild(tr);
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------- upsets */
+  function renderUpsets() {
+    var ups = [];
+    DATA.fights.forEach(function (f) {
+      if (!priced(f)) return;
+      if (f.w !== "a" && f.w !== "b") return;
+      var winOdds = f.w === "a" ? f.oa : f.ob;
+      if (winOdds <= 0) return;                       /* only plus-money winners */
+      ups.push({
+        f: f,
+        winner: DATA.fighters[f.w === "a" ? f.a : f.b],
+        loser: DATA.fighters[f.w === "a" ? f.b : f.a],
+        odds: winOdds,
+        theirs: f.w === "a" ? f.ob : f.oa
+      });
+    });
+    ups.sort(function (x, y) { return y.odds - x.odds || (x.f.d < y.f.d ? -1 : 1); });
+    ups = ups.slice(0, TOP);
+
+    var tb = document.getElementById("ups-tbody");
+    tb.innerHTML = "";
+    ups.forEach(function (u) {
+      var ev = DATA.events[u.f.e];
+      var tr = document.createElement("tr");
+      tr.className = "is-win";
+
+      tr.appendChild(fighterCell(u.winner));
+
+      var tdO = document.createElement("td");
+      tdO.className = "mono val-strong";
+      tdO.style.color = "var(--series-2)";
+      tdO.textContent = UFC.odds(u.odds);
+      tr.appendChild(tdO);
+
+      tr.appendChild(UFC.td(UFC.pct(UFC.impliedProb(u.odds), 1), "mono"));
+      tr.appendChild(UFC.td(UFC.money(UFC.americanProfit(u.odds, true)), "mono"));
+      tr.appendChild(fighterCell(u.loser));
+      tr.appendChild(UFC.td(UFC.odds(u.theirs), "mono"));
+
+      var tdE = document.createElement("td");
+      tdE.className = "l";
+      var a = document.createElement("a");
+      a.href = "event.html?id=" + ev.i;
+      a.textContent = ev.n;
+      a.title = ev.n + " · " + UFC.fmtDate(ev.d) + " · " + ev.nf + " bouts";
+      tdE.appendChild(a);
+      tr.appendChild(tdE);
+
+      tr.appendChild(UFC.td(UFC.fmtDate(u.f.d), "l mono"));
+      tr.appendChild(UFC.td(u.f.m + (u.f.r ? " · R" + u.f.r : ""), "l"));
+      tb.appendChild(tr);
+    });
+
+    document.getElementById("ups-fmt").textContent = UFC.oddsFormatLabel();
+    var cov = UFC.oddsCoverage;
+    document.getElementById("ups-window").textContent =
+      cov ? UFC.fmtDate(cov.from) + " – " + UFC.fmtDate(cov.to) : "matched";
+  }
+
+  /* ---------------------------------------------------------- referees */
+  function renderReferees() {
+    var agg = {}, unknown = 0;
+    DATA.fights.forEach(function (f) {
+      if (f.ref === null || f.ref === undefined) { unknown++; return; }
+      var a = agg[f.ref];
+      if (!a) a = agg[f.ref] = { n: 0, fin: 0, title: 0, first: f.d, last: f.d, events: {} };
+      a.n++;
+      a.events[f.e] = 1;
+      if (f.m && !/decision/i.test(f.m) && (f.w === "a" || f.w === "b")) a.fin++;
+      if (f.t > 0) a.title++;
+      if (f.d < a.first) a.first = f.d;
+      if (f.d > a.last) a.last = f.d;
+    });
+
+    var rows = [];
+    for (var k in agg) {
+      if (!Object.prototype.hasOwnProperty.call(agg, k)) continue;
+      var a = agg[k];
+      var nEv = 0;
+      for (var e in a.events) if (Object.prototype.hasOwnProperty.call(a.events, e)) nEv++;
+      rows.push({ name: DATA.referees[k], a: a, events: nEv });
+    }
+    rows.sort(function (x, y) { return y.a.n - x.a.n || (x.name < y.name ? -1 : 1); });
+    var total = rows.length;
+    rows = rows.slice(0, TOP);
+
+    var tb = document.getElementById("ref-tbody");
+    tb.innerHTML = "";
+    rows.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.appendChild(UFC.td(r.name, "l"));
+      tr.appendChild(UFC.td(r.a.n.toLocaleString(), "mono val-strong"));
+      tr.appendChild(UFC.td(r.events.toLocaleString(), "mono"));
+      tr.appendChild(UFC.td(UFC.pct(r.a.n / DATA.fights.length, 1), "mono"));
+      tr.appendChild(UFC.td(r.a.fin.toLocaleString(), "mono"));
+      tr.appendChild(UFC.td(UFC.pct(r.a.fin / r.a.n, 1), "mono"));
+      tr.appendChild(UFC.td(String(r.a.title), "mono"));
+      tr.appendChild(UFC.td(UFC.year(r.a.first) + "–" + UFC.year(r.a.last), "l mono"));
+      tb.appendChild(tr);
+    });
+
+    document.getElementById("ref-total").textContent = total.toLocaleString();
+    document.getElementById("ref-unknown").textContent = unknown.toLocaleString();
+  }
+
+  /* ------------------------------------------------------------ orchestrate */
+  UFC.nav("leaderboards");
+  buildBoardShells();
+
+  document.getElementById("minf").addEventListener("change", renderBoards);
+
+  UFC.load().then(function (data) {
+    DATA = data;
+    ROWS = data.fighters.map(function (f) {
+      return {
+        f: f,
+        fin: f.ko + f.sub,
+        finRate: f.w ? (f.ko + f.sub) / f.w : null,
+        sig: f.sigA ? f.sigL / f.sigA : null,
+        td: f.tdA ? f.tdL / f.tdA : null
+      };
+    });
+
+    document.getElementById("hdr-fighters").textContent = data.fighters.length.toLocaleString();
+    document.getElementById("hdr-fights").textContent = data.fights.length.toLocaleString();
+    var cov = UFC.oddsCoverage;
+    document.getElementById("hdr-cov").textContent =
+      cov ? UFC.fmtDate(cov.from) + " – " + UFC.fmtDate(cov.to) : "unknown";
+    document.getElementById("foot-coverage").textContent = cov
+      ? "The upsets board can only see the " + cov.priced.toLocaleString() + " of " +
+        cov.total.toLocaleString() + " fights with a matched closing line (" + UFC.fmtDateLong(cov.from) +
+        " – " + UFC.fmtDateLong(cov.to) + "). A bigger upset may well sit in the unpriced majority."
+      : "Odds coverage is partial.";
+
+    renderBoards();
+    renderUpsets();
+    renderReferees();
+  })["catch"](function (err) {
+    UFC.loadError(document.getElementById("boards"), err);
+    if (window.console) console.error(err);
+  });
+
+  window.addEventListener("ufc:repaint", function () {
+    if (DATA) { renderBoards(); renderUpsets(); renderReferees(); }
+  });
+})();
+</script>
+</body>
+</html>

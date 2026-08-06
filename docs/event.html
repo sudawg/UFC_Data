@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event card · UFC_Data</title>
+<meta name="description" content="Full UFC event card: every bout with closing odds, implied probability, result and the per-fight statistics for both corners.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a8681a'/%3E%3Crect x='7' y='20' width='18' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  /* page-local layout only — everything visual comes from assets/site.css */
+  .idhead .facts{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:10px 0 0; padding:0; list-style:none;
+                  font-size:13px; color:var(--ink-2); }
+  .idhead .facts li{ display:flex; gap:6px; }
+  .idhead .facts b{ color:var(--ink); font-weight:600; }
+  .refline{ margin:10px 0 0; font-size:12.5px; color:var(--ink-muted); max-width:70ch; }
+  .refline b{ color:var(--ink-2); font-weight:600; }
+  .cardnav{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px; font-size:12.5px; }
+  .cardnav a{ color:var(--ink-2); text-decoration:none; border:1px solid var(--line-strong);
+              border-radius:7px; padding:5px 10px; white-space:nowrap; }
+  .cardnav a:hover{ color:var(--ink); border-color:var(--ink-muted); }
+  .cardnav span.disabled{ opacity:.4; border:1px solid var(--line-strong); border-radius:7px; padding:5px 10px; }
+
+  .tablehead{ display:flex; align-items:center; justify-content:space-between; gap:10px 16px;
+              flex-wrap:wrap; margin:0 2px 10px; }
+  .tablehead .hint{ font-size:11.5px; color:var(--ink-muted); }
+
+  /* two stacked corner values inside one dense row */
+  .two > span{ display:block; line-height:19px; }
+  .two .corner-b{ color:var(--ink-2); }
+  .boutcell{ display:flex; align-items:center; gap:9px; }
+  .bt-toggle{
+    flex:0 0 auto; width:20px; height:20px; line-height:1; padding:0; cursor:pointer;
+    background:transparent; border:1px solid var(--line-strong); border-radius:5px;
+    color:var(--ink-muted); font-size:10px;
+  }
+  .bt-toggle:hover{ color:var(--ink); border-color:var(--ink-muted); }
+  .bt-toggle .chev{ display:inline-block; transition: transform .12s ease; }
+  .bt-toggle[aria-expanded="true"] .chev{ transform: rotate(90deg); }
+  .bt-toggle[aria-expanded="true"]{ background:var(--accent-soft); color:var(--accent-ink); border-color:transparent; }
+  .ord{ flex:0 0 auto; min-width:38px; text-align:center; font-size:9.5px; font-weight:700;
+        letter-spacing:.05em; text-transform:uppercase; color:var(--ink-muted); }
+  .names{ min-width:210px; }
+  .names .nm{ display:flex; align-items:center; gap:7px; line-height:19px; }
+  .names .nm .res{ flex:0 0 auto; min-width:26px; justify-content:center; }
+  .names .nm.winner a{ font-weight:700; }
+  td.odds-na{ color:var(--ink-muted); cursor:help; }
+  .o-fav{ color:var(--series-1); font-weight:700; }
+  .o-dog{ color:var(--series-2); font-weight:700; }
+  tr.boutrow{ cursor:pointer; }
+
+  /* expanded per-corner statistics.
+     NB: the child combinator matters — a descendant selector here would also
+     hit the <td>s of the nested comparison table and undo their layout. */
+  .table-frozen table.odds tbody tr.statrow > td{
+    position:static; box-shadow:none; white-space:normal;
+    background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+    padding:12px 14px 14px; text-align:left;
+  }
+  .table-frozen table.odds tbody tr.statrow:hover > td{
+    background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+  }
+  table.cmp{ width:100%; max-width:720px; border-collapse:collapse; font-size:12px; }
+  table.cmp th{ font:700 10.5px/1.3 system-ui,sans-serif; text-transform:uppercase; letter-spacing:.05em;
+                color:var(--ink-muted); padding:0 6px 6px; background:none; border:0; }
+  table.cmp th.nm-a{ text-align:left; color:var(--series-1); }
+  table.cmp th.nm-b{ text-align:right; color:var(--series-2); }
+  table.cmp th.mid{ text-align:center; }
+  table.cmp td{ padding:3px 6px; border:0; background:none; vertical-align:middle; }
+  table.cmp td.v{ font-family:ui-monospace,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;
+                  white-space:nowrap; width:1%; }
+  table.cmp td.v.a{ text-align:left; }
+  table.cmp td.v.b{ text-align:right; }
+  table.cmp td.lbl{ text-align:center; color:var(--ink-2); white-space:nowrap; width:1%; padding:3px 12px; }
+  table.cmp td.bar{ width:38%; }
+  table.cmp td.bar i{ display:block; height:9px; border-radius:3px; min-width:0; }
+  table.cmp td.bar.a{ text-align:right; }
+  table.cmp td.bar.a i{ margin-left:auto; background:var(--series-1); }
+  table.cmp td.bar.b i{ background:var(--series-2); }
+  table.cmp td.bar i.zero{ background:var(--line-strong); }
+  table.cmp tr.lead td.v{ font-weight:700; }
+  .statnote{ margin:10px 0 0; font-size:11.5px; color:var(--ink-muted); max-width:70ch; }
+  @media (max-width: 720px){ .names{ min-width:150px; } table.cmp td.bar{ width:22%; } }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div class="idhead" style="flex:1">
+      <div>
+        <p class="kicker" id="e-kicker">Event card</p>
+        <h1 id="e-name">Loading…</h1>
+        <ul class="facts" id="e-facts"></ul>
+        <p class="refline" id="e-refs"></p>
+        <nav class="cardnav" id="e-cardnav" aria-label="Adjacent events"></nav>
+      </div>
+    </div>
+    <div class="source-note">
+      Closing odds coverage<br><span id="e-coverage">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+  <div id="e-missing" hidden>
+    <div class="card" style="margin-top:28px">
+      <h3>No event selected</h3>
+      <p class="cardnote" id="e-missing-msg">This page needs an event id, e.g. <code>event.html?id=773</code>.</p>
+      <p style="font-size:13.5px;margin:0">
+        Browse the <a href="events.html">full event archive</a> (every card in the database),
+        or press <kbd>/</kbd> to search by name.
+      </p>
+    </div>
+  </div>
+
+  <div id="e-body" hidden>
+    <h2 class="section-title">Full card</h2>
+    <p class="section-desc" id="e-desc">Bouts in card order, main event first. Closing odds are the consensus
+      American price for each corner; implied probability is taken straight from that price and still contains
+      the book's vig.</p>
+
+    <div class="card" style="padding:14px 14px 10px">
+      <div class="tablehead">
+        <button class="tab-btn" type="button" id="expand-all" aria-pressed="false">Expand all statistics</button>
+        <span class="hint">Select a bout row (or its ▸ button) to open the per-corner statistics.</span>
+      </div>
+      <div class="table-frozen">
+        <table class="odds" id="card-table">
+          <thead>
+            <tr>
+              <th class="l" scope="col">Bout</th>
+              <th scope="col">Closing odds</th>
+              <th scope="col">Implied</th>
+              <th class="l" scope="col">Weight class</th>
+              <th class="l" scope="col">Method</th>
+              <th scope="col">Rd</th>
+              <th scope="col">Time</th>
+              <th class="l" scope="col">Referee</th>
+            </tr>
+          </thead>
+          <tbody id="card-tbody"></tbody>
+        </table>
+      </div>
+      <div class="legend" style="margin:10px 2px 4px">
+        <span class="item"><span class="swatch sq" style="background:var(--series-1)"></span>Betting favourite</span>
+        <span class="item"><span class="swatch sq" style="background:var(--series-2)"></span>Underdog</span>
+        <span class="item" id="card-count">–</span>
+        <span class="item" style="margin-left:auto">Odds shown in <b id="card-fmt" style="margin-left:4px">American</b> format — change it in the top bar.</span>
+      </div>
+    </div>
+
+    <footer>
+      <strong>About this card.</strong> Results and per-fight statistics come from
+      <code>Data/fight_data.csv</code> and <code>Data/fight_data_raw.csv</code>; closing prices are joined from
+      <code>Data/moneyline.csv</code>. Notes:
+      <ul>
+        <li id="foot-coverage">–</li>
+        <li>A <span class="mono">—</span> in the odds column means no closing line was matched for that bout.
+          It is never a substitute for a real price.</li>
+        <li>Bout order is reconstructed from the scrape order within a card (main event first). It is accurate
+          for the headline bouts but the exact prelim running order can differ from the broadcast.</li>
+        <li>The statistics panel shows totals for the whole fight, not per round. Bouts before roughly 2001
+          frequently have partial or zero strike counts on record.</li>
+      </ul>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var qs = new URLSearchParams(location.search);
+  var rawId = qs.get("id");
+  if (rawId === null || rawId === "") {
+    /* secondary contract: event.html#event-123 (same shape betting.html accepts) */
+    var hm = /^#event-(\d+)$/.exec(location.hash || "");
+    if (hm) rawId = hm[1];
+  }
+  var eventId = rawId === null || rawId === "" ? null : parseInt(rawId, 10);
+
+  var DATA = null, EV = null, BOUTS = [], allOpen = false;
+
+  var STAT_ROWS = [
+    { lbl: "Knockdowns",        get: function (s) { return s[0]; }, fmt: plain },
+    { lbl: "Sig. strikes",      get: function (s) { return s[1]; }, fmt: ofAtt(1, 2) },
+    { lbl: "Sig. strike acc.",  get: function (s) { return s[2] ? s[1] / s[2] : 0; }, fmt: accOf(1, 2), isPct: true },
+    { lbl: "Total strikes",     get: function (s) { return s[3]; }, fmt: ofAtt(3, 4) },
+    { lbl: "Takedowns",         get: function (s) { return s[5]; }, fmt: ofAtt(5, 6) },
+    { lbl: "Takedown acc.",     get: function (s) { return s[6] ? s[5] / s[6] : 0; }, fmt: accOf(5, 6), isPct: true },
+    { lbl: "Submission att.",   get: function (s) { return s[7]; }, fmt: plain },
+    { lbl: "Reversals",         get: function (s) { return s[8]; }, fmt: plain }
+  ];
+  function plain(s, v) { return String(v); }
+  function ofAtt(li, ai) {
+    return function (s) { return s[li].toLocaleString() + " / " + s[ai].toLocaleString(); };
+  }
+  function accOf(li, ai) {
+    return function (s) { return s[ai] ? UFC.pct(s[li] / s[ai], 1) : UFC.DASH; };
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function showMissing(msg) {
+    document.getElementById("e-missing").hidden = false;
+    document.getElementById("e-body").hidden = true;
+    document.getElementById("e-name").textContent = "Event not found";
+    document.getElementById("e-kicker").textContent = "UFC_Data";
+    if (msg) document.getElementById("e-missing-msg").innerHTML = msg;
+  }
+
+  function priced(f) { return f.oa !== null && f.oa !== undefined && f.ob !== null && f.ob !== undefined; }
+
+  /* ---------------------------------------------------------------- header */
+  function renderHeader() {
+    document.title = EV.n + " · UFC_Data";
+    document.getElementById("e-name").textContent = EV.n;
+    document.getElementById("e-kicker").textContent = "Event card · " + UFC.fmtDate(EV.d);
+
+    var nPriced = 0, nTitle = 0, finishes = 0;
+    BOUTS.forEach(function (f) {
+      if (priced(f)) nPriced++;
+      if (f.t > 0) nTitle++;
+      if (f.m && !/decision/i.test(f.m) && (f.w === "a" || f.w === "b")) finishes++;
+    });
+
+    var facts = [
+      ["Date", UFC.fmtDateLong(EV.d)],
+      ["Bouts", BOUTS.length + (nTitle ? " · " + nTitle + " title" : "")],
+      ["Finishes", finishes + " of " + BOUTS.length],
+      ["Priced bouts", nPriced + " of " + BOUTS.length]
+    ];
+    var ul = document.getElementById("e-facts");
+    ul.innerHTML = "";
+    facts.forEach(function (f) {
+      var li = document.createElement("li");
+      li.innerHTML = "<span>" + f[0] + "</span><b>" + escapeHtml(f[1]) + "</b>";
+      ul.appendChild(li);
+    });
+
+    /* referees working the card, busiest first */
+    var counts = {}, order = [], unknown = 0;
+    BOUTS.forEach(function (f) {
+      if (f.ref === null || f.ref === undefined) { unknown++; return; }
+      var nm = DATA.referees[f.ref];
+      if (!nm) { unknown++; return; }
+      if (!counts[nm]) { counts[nm] = 0; order.push(nm); }
+      counts[nm]++;
+    });
+    order.sort(function (a, b) { return counts[b] - counts[a] || (a < b ? -1 : 1); });
+    var refEl = document.getElementById("e-refs");
+    if (!order.length) {
+      refEl.innerHTML = "<b>Referees:</b> none on record for this card.";
+    } else {
+      refEl.innerHTML = "<b>Referee" + (order.length === 1 ? "" : "s") + ":</b> " +
+        order.map(function (n) {
+          return escapeHtml(n) + " <span class=\"mono\">(" + counts[n] + ")</span>";
+        }).join(" · ") +
+        (unknown ? " · <span class=\"mono\">" + unknown + "</span> bout" + (unknown === 1 ? "" : "s") +
+          " with no referee on record" : "");
+    }
+
+    /* previous / next card — events.json is ordered chronologically by index */
+    var nav = document.getElementById("e-cardnav");
+    nav.innerHTML = "";
+    var prev = DATA.events[EV.i - 1], next = DATA.events[EV.i + 1];
+    nav.appendChild(navChip(prev, "← ", "Previous card"));
+    var archive = document.createElement("a");
+    archive.href = "events.html";
+    archive.textContent = "All " + DATA.events.length.toLocaleString() + " events";
+    nav.appendChild(archive);
+    nav.appendChild(navChip(next, "", "Next card", true));
+
+    var cov = UFC.oddsCoverage;
+    document.getElementById("e-coverage").textContent =
+      cov ? UFC.fmtDate(cov.from) + " – " + UFC.fmtDate(cov.to) : "unknown";
+    document.getElementById("foot-coverage").textContent = cov
+      ? "Matched closing lines exist only between " + UFC.fmtDateLong(cov.from) + " and " +
+        UFC.fmtDateLong(cov.to) + " — " + cov.priced.toLocaleString() + " of " +
+        cov.total.toLocaleString() + " UFC fights in the database are priced."
+      : "Odds coverage is partial.";
+
+    var desc = document.getElementById("e-desc");
+    if (!nPriced) {
+      desc.innerHTML = "Bouts in card order, main event first. <b>No bout on this card has a matched closing " +
+        "line</b>" + (cov ? " — it falls outside the " + UFC.fmtDate(cov.from) + " – " + UFC.fmtDate(cov.to) +
+        " moneyline window" : "") + ", so every price below reads —. Results and statistics are complete.";
+    }
+  }
+
+  function navChip(ev, prefix, label, suffixArrow) {
+    if (!ev) {
+      var s = document.createElement("span");
+      s.className = "disabled";
+      s.textContent = prefix + label;
+      return s;
+    }
+    var a = document.createElement("a");
+    a.href = "event.html?id=" + ev.i;
+    a.textContent = prefix + ev.n + (suffixArrow ? " →" : "");
+    a.title = label + ": " + ev.n + " · " + UFC.fmtDate(ev.d);
+    return a;
+  }
+
+  /* ----------------------------------------------------------- card table */
+  function ordLabel(o) {
+    if (o === 1) return "Main";
+    if (o === 2) return "Co-main";
+    return String(o);
+  }
+
+  function nameLine(fighter, res, isWinner) {
+    var d = document.createElement("span");
+    d.className = "nm" + (isWinner ? " winner" : "");
+    var pill = document.createElement("span");
+    pill.className = "pill res " + (res === "W" ? "win" : res === "L" ? "loss" : res === "D" ? "draw" : "nc");
+    pill.textContent = res;
+    var a = document.createElement("a");
+    a.href = "fighter.html?id=" + fighter.i;
+    a.textContent = fighter.n;
+    d.appendChild(pill);
+    d.appendChild(a);
+    return d;
+  }
+
+  function twoCell(topText, botText, topCls, botCls) {
+    var td = document.createElement("td");
+    td.className = "mono two";
+    var t = document.createElement("span");
+    t.textContent = topText;
+    if (topCls) t.className = topCls;
+    var b = document.createElement("span");
+    b.textContent = botText;
+    b.className = "corner-b" + (botCls ? " " + botCls : "");
+    td.appendChild(t);
+    td.appendChild(b);
+    return td;
+  }
+
+  function renderCard() {
+    var tbody = document.getElementById("card-tbody");
+    tbody.innerHTML = "";
+    var nPriced = 0;
+
+    BOUTS.forEach(function (f) {
+      var A = DATA.fighters[f.a], B = DATA.fighters[f.b];
+      var has = priced(f);
+      if (has) nPriced++;
+      var resA = f.w === "D" ? "D" : f.w === "N" ? "NC" : (f.w === "a" ? "W" : "L");
+      var resB = f.w === "D" ? "D" : f.w === "N" ? "NC" : (f.w === "b" ? "W" : "L");
+      var statId = "bout-stats-" + f.i;
+
+      var tr = document.createElement("tr");
+      tr.className = "boutrow";
+
+      /* -- frozen bout cell: order chip, expander, both corners ------------ */
+      var tdBout = document.createElement("td");
+      tdBout.className = "l";
+      var wrap = document.createElement("div");
+      wrap.className = "boutcell";
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bt-toggle";
+      btn.setAttribute("aria-expanded", "false");
+      btn.setAttribute("aria-controls", statId);
+      btn.setAttribute("aria-label", "Show fight statistics for " + A.n + " versus " + B.n);
+      btn.innerHTML = '<span class="chev" aria-hidden="true">▸</span>';
+
+      var ord = document.createElement("span");
+      ord.className = "ord";
+      ord.textContent = ordLabel(f.o);
+      ord.title = "Bout " + f.o + " of " + BOUTS.length + " on this card";
+
+      var names = document.createElement("div");
+      names.className = "names";
+      names.appendChild(nameLine(A, resA, f.w === "a"));
+      names.appendChild(nameLine(B, resB, f.w === "b"));
+
+      wrap.appendChild(btn);
+      wrap.appendChild(ord);
+      wrap.appendChild(names);
+      tdBout.appendChild(wrap);
+      tr.appendChild(tdBout);
+
+      /* -- odds + implied ------------------------------------------------- */
+      var favA = has && f.oa < f.ob, favB = has && f.ob < f.oa;
+      var tdOdds = twoCell(
+        has ? UFC.odds(f.oa) : UFC.DASH,
+        has ? UFC.odds(f.ob) : UFC.DASH,
+        has ? (favA ? "o-fav" : favB ? "o-dog" : "") : "",
+        has ? (favB ? "o-fav" : favA ? "o-dog" : "") : ""
+      );
+      var tdImp = twoCell(
+        has ? UFC.pct(UFC.impliedProb(f.oa), 1) : UFC.DASH,
+        has ? UFC.pct(UFC.impliedProb(f.ob), 1) : UFC.DASH
+      );
+      if (!has) {
+        [tdOdds, tdImp].forEach(function (td) {
+          td.className += " odds-na";
+          td.title = UFC.ODDS_COVERAGE_NOTE;
+        });
+        tdOdds.setAttribute("aria-label", "No closing odds on record for this bout");
+        tdOdds.tabIndex = 0;
+      }
+      tr.appendChild(tdOdds);
+      tr.appendChild(tdImp);
+
+      /* -- bout-level cells ----------------------------------------------- */
+      var tdWc = document.createElement("td");
+      tdWc.className = "l";
+      tdWc.appendChild(document.createTextNode((f.g === "W" ? "Women's " : "") + f.wc));
+      if (f.t > 0) {
+        var tp = document.createElement("span");
+        tp.className = "pill title";
+        tp.style.marginLeft = "6px";
+        tp.textContent = f.t === 2 ? "INTERIM" : "TITLE";
+        tp.title = f.t === 2 ? "Interim championship bout" : "Championship bout";
+        tdWc.appendChild(tp);
+      }
+      tr.appendChild(tdWc);
+
+      tr.appendChild(UFC.td(f.m || UFC.DASH, "l"));
+      tr.appendChild(UFC.td(f.r ? String(f.r) : UFC.DASH, "mono"));
+      tr.appendChild(UFC.td(f.tm || UFC.DASH, "mono"));
+      var refName = (f.ref === null || f.ref === undefined) ? null : DATA.referees[f.ref];
+      tr.appendChild(UFC.td(refName || UFC.DASH, refName ? "l" : "l dim"));
+
+      tbody.appendChild(tr);
+
+      /* -- collapsed statistics row --------------------------------------- */
+      var sTr = document.createElement("tr");
+      sTr.className = "statrow";
+      sTr.id = statId;
+      sTr.hidden = true;
+      var sTd = document.createElement("td");
+      sTd.colSpan = 8;
+      sTd.appendChild(buildComparison(f, A, B));
+      sTr.appendChild(sTd);
+      tbody.appendChild(sTr);
+
+      function toggle(force) {
+        var open = force === undefined ? sTr.hidden : force;
+        sTr.hidden = !open;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+        btn.setAttribute("aria-label", (open ? "Hide" : "Show") + " fight statistics for " + A.n + " versus " + B.n);
+      }
+      btn.addEventListener("click", function (e) { e.stopPropagation(); toggle(); });
+      tr.addEventListener("click", function (e) {
+        var t = e.target;
+        while (t && t !== tr) {
+          var tag = (t.tagName || "").toLowerCase();
+          if (tag === "a" || tag === "button") return;
+          t = t.parentNode;
+        }
+        toggle();
+      });
+      tr.__toggle = toggle;
+    });
+
+    document.getElementById("card-count").textContent =
+      BOUTS.length + (BOUTS.length === 1 ? " bout" : " bouts") + " · " +
+      nPriced + " with a closing line, " + (BOUTS.length - nPriced) + " without";
+    document.getElementById("card-fmt").textContent = UFC.oddsFormatLabel();
+    syncExpandAll();
+  }
+
+  /* ------------------------------------------------- statistics comparison */
+  function buildComparison(f, A, B) {
+    var box = document.createElement("div");
+    var sa = f.sa || [], sb = f.sb || [];
+    var any = false;
+    for (var k = 0; k < 9; k++) { if (sa[k] || sb[k]) { any = true; break; } }
+
+    if (!any) {
+      var none = document.createElement("p");
+      none.className = "statnote";
+      none.style.margin = "0";
+      none.textContent = "No per-fight statistics were recorded for this bout — every counter on record is zero. " +
+        "That is common for the earliest cards and for fights that ended in seconds.";
+      box.appendChild(none);
+      return box;
+    }
+
+    var tbl = document.createElement("table");
+    tbl.className = "cmp";
+    var cap = document.createElement("caption");
+    cap.className = "visually-hidden";
+    cap.textContent = "Fight statistics: " + A.n + " versus " + B.n;
+    tbl.appendChild(cap);
+
+    var thead = document.createElement("thead");
+    thead.innerHTML = '<tr><th class="nm-a" colspan="2" scope="col">' + escapeHtml(A.n) + '</th>' +
+      '<th class="mid" scope="col">Statistic</th>' +
+      '<th class="nm-b" colspan="2" scope="col">' + escapeHtml(B.n) + '</th></tr>';
+    tbl.appendChild(thead);
+
+    var tb = document.createElement("tbody");
+    STAT_ROWS.forEach(function (row) {
+      var va = row.get(sa), vb = row.get(sb);
+      var max = Math.max(va, vb, row.isPct ? 1 : 0) || 1;
+      var tr = document.createElement("tr");
+      if (va !== vb) tr.className = "lead";
+
+      tr.appendChild(valCell(row.fmt(sa, va), "a", va >= vb));
+      tr.appendChild(barCell(va / max, "a"));
+      var lbl = document.createElement("td");
+      lbl.className = "lbl";
+      lbl.textContent = row.lbl;
+      tr.appendChild(lbl);
+      tr.appendChild(barCell(vb / max, "b"));
+      tr.appendChild(valCell(row.fmt(sb, vb), "b", vb >= va));
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    box.appendChild(tbl);
+
+    var note = document.createElement("p");
+    note.className = "statnote";
+    note.textContent = "Whole-fight totals. " +
+      (f.r ? "Fight ended in round " + f.r + " at " + f.tm + " of " + f.sr + " scheduled." : "") +
+      " Accuracy is landed ÷ attempted and is undefined when nothing was thrown.";
+    box.appendChild(note);
+    return box;
+  }
+
+  function valCell(text, side, lead) {
+    var td = document.createElement("td");
+    td.className = "v " + side;
+    td.textContent = text;
+    if (!lead) td.style.color = "var(--ink-2)";
+    return td;
+  }
+  function barCell(frac, side) {
+    var td = document.createElement("td");
+    td.className = "bar " + side;
+    var i = document.createElement("i");
+    var pctW = Math.max(0, Math.min(1, frac || 0)) * 100;
+    i.style.width = (pctW < 1.5 ? 1.5 : pctW) + "%";
+    if (!frac) i.className = "zero";
+    i.setAttribute("aria-hidden", "true");
+    td.appendChild(i);
+    return td;
+  }
+
+  /* ------------------------------------------------------------ expand all */
+  function syncExpandAll() {
+    var btn = document.getElementById("expand-all");
+    btn.setAttribute("aria-pressed", allOpen ? "true" : "false");
+    btn.textContent = allOpen ? "Collapse all statistics" : "Expand all statistics";
+  }
+  document.getElementById("expand-all").addEventListener("click", function () {
+    allOpen = !allOpen;
+    var rows = document.querySelectorAll("#card-tbody tr.boutrow");
+    for (var i = 0; i < rows.length; i++) if (rows[i].__toggle) rows[i].__toggle(allOpen);
+    syncExpandAll();
+  });
+
+  /* ------------------------------------------------------------ orchestrate */
+  UFC.nav("events");
+
+  UFC.load().then(function (data) {
+    DATA = data;
+    if (eventId === null || isNaN(eventId) || eventId < 0 || eventId >= data.events.length) {
+      showMissing(rawId
+        ? 'No event with id <code>' + escapeHtml(rawId) + '</code>. Ids run 0–' + (data.events.length - 1) + '.'
+        : 'This page needs an event id, e.g. <code>event.html?id=' + (data.events.length - 1) + '</code> (the most recent card).');
+      return;
+    }
+    EV = data.events[eventId];
+    BOUTS = data.fights.filter(function (f) { return f.e === eventId; })
+      .sort(function (a, b) { return a.o - b.o; });
+    document.getElementById("e-body").hidden = false;
+    renderHeader();
+    renderCard();
+  })["catch"](function (err) {
+    showMissing("Could not load site data (" + escapeHtml(err.message || String(err)) +
+      "). Serve the <code>docs/</code> folder over http rather than opening the file directly.");
+    if (window.console) console.error(err);
+  });
+
+  /* odds-format change / theme flip → re-render prices */
+  window.addEventListener("ufc:repaint", function () {
+    if (EV) { allOpen = false; renderCard(); }
+  });
+})();
+</script>
+</body>
+</html>

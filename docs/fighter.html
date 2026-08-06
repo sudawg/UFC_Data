@@ -574,7 +574,7 @@
       tdEv.className = "l";
       if (ev) {
         var aEv = document.createElement("a");
-        aEv.href = "betting.html#event-" + ev.i;
+        aEv.href = "event.html?id=" + ev.i;
         aEv.textContent = ev.n;
         aEv.title = ev.n + " · " + UFC.fmtDate(ev.d) + " · " + ev.nf + " fights";
         tdEv.appendChild(aEv);
