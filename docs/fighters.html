@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fighter directory · UFC_Data</title>
+<meta name="description" content="Every fighter in the UFC_Data database: records, finish rates, striking accuracy and how often the betting market made them the favourite.">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  .toolbar{
+    position: sticky; top: 46px; z-index: 20;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar .inner{
+    max-width: 1180px; margin: 0 auto; padding: 10px 20px;
+    display:flex; flex-wrap:wrap; align-items:center; gap: 10px 16px;
+  }
+  .toolbar label{ font-size:12px; font-weight:600; color: var(--ink-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .toolbar input.txt{ min-width: 240px; }
+  .toolbar .grp{ display:flex; align-items:center; gap:8px; }
+  .toolbar .count{ margin-left:auto; font-size:12.5px; color: var(--ink-muted); }
+  .toolbar .count b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+  .chk{ display:flex; align-items:center; gap:6px; font-size:12.5px; color: var(--ink-2); text-transform:none; letter-spacing:0; font-weight:500; }
+  @media (max-width: 720px){ .toolbar{ position: static; } .toolbar input.txt{ min-width: 0; flex:1; } }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="kicker">UFC_Data · Directory</p>
+      <h1>Fighter directory</h1>
+      <p class="sub">Every fighter with at least one bout in the database. Sort by any column, filter by name, and
+        click through for the full fight history with closing odds.</p>
+    </div>
+    <div class="source-note">
+      <span id="hdr-count">–</span> fighters<br>
+      <span id="hdr-fights">–</span> bouts · data through <span id="hdr-through">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="inner">
+    <div class="grp">
+      <label for="q">Filter</label>
+      <input class="txt" type="search" id="q" placeholder="Type a fighter name…" autocomplete="off" spellcheck="false"
+             aria-label="Filter fighters by name">
+    </div>
+    <div class="grp">
+      <label for="minf">Min. fights</label>
+      <select id="minf">
+        <option value="1">1+</option>
+        <option value="3">3+</option>
+        <option value="5">5+</option>
+        <option value="10">10+</option>
+        <option value="15">15+</option>
+        <option value="20">20+</option>
+      </select>
+    </div>
+    <label class="chk"><input type="checkbox" id="pricedonly"> Only fighters with closing lines</label>
+    <button class="reset-btn" type="button" id="reset">Reset</button>
+    <span class="count"><b id="fc">–</b> shown</span>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="card" style="margin-top:22px; padding:14px 14px 10px">
+    <div class="table-frozen table-frozen--y">
+      <table class="odds" id="dir-table">
+        <thead>
+          <tr id="dir-head"></tr>
+        </thead>
+        <tbody id="dir-tbody">
+          <tr><td colspan="12" class="empty-state">Loading fighters…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="pg-first" type="button" aria-label="First page">&laquo;</button>
+      <button id="pg-prev" type="button">&larr; Prev</button>
+      <span id="pg-label" aria-live="polite">Page 1</span>
+      <button id="pg-next" type="button">Next &rarr;</button>
+      <button id="pg-last" type="button" aria-label="Last page">&raquo;</button>
+    </div>
+  </div>
+
+  <footer>
+    <strong>Reading this table.</strong> Finish rate is (KO/TKO + submission) wins divided by total wins.
+    Striking and takedown accuracy are career totals across every bout with recorded statistics.
+    <ul>
+      <li id="foot-coverage">–</li>
+      <li>“Favoured” and “Underdog” count only bouts that both carry a matched closing line and ended decisively
+        (draws and no-contests are excluded), so they will not add up to a fighter's total bouts.</li>
+      <li>Fighters whose entire career falls outside the odds window show 0 in both market columns — that means
+        “no price on record”, not “never favoured”.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAGE_SIZE = 50;
+  var DATA = null, ROWS = [], VIEW = [], page = 0;
+  var sortKey = "nf", sortDir = -1;
+
+  var COLS = [
+    { key: "n",   label: "Fighter",  cls: "l", sort: "text", get: function (r) { return r.f.n; } },
+    { key: "rec", label: "Record",   cls: "l", sort: null,   get: function (r) { return UFC.record(r.f); } },
+    { key: "nf",  label: "Fights",   sort: "num", get: function (r) { return r.f.nf; } },
+    { key: "w",   label: "W",        sort: "num", get: function (r) { return r.f.w; } },
+    { key: "l",   label: "L",        sort: "num", get: function (r) { return r.f.l; } },
+    { key: "fin", label: "Finish %", sort: "num", get: function (r) { return r.fin; },
+      fmt: function (v) { return v === null ? UFC.DASH : UFC.pct(v, 0); } },
+    { key: "sig", label: "Sig. acc", sort: "num", get: function (r) { return r.sig; },
+      fmt: function (v) { return v === null ? UFC.DASH : UFC.pct(v, 1); } },
+    { key: "td",  label: "TD acc",   sort: "num", get: function (r) { return r.td; },
+      fmt: function (v) { return v === null ? UFC.DASH : UFC.pct(v, 1); } },
+    { key: "favN", label: "Favoured", sort: "num", get: function (r) { return r.f.favN; },
+      title: "Bouts in which this fighter was the betting favourite (matched closing line, decisive result)" },
+    { key: "favP", label: "Fav W%",  sort: "num", get: function (r) { return r.favP; },
+      fmt: function (v) { return v === null ? UFC.DASH : UFC.pct(v, 0); } },
+    { key: "dogN", label: "Underdog", sort: "num", get: function (r) { return r.f.dogN; },
+      title: "Bouts in which this fighter was the betting underdog" },
+    { key: "dogP", label: "Dog W%",  sort: "num", get: function (r) { return r.dogP; },
+      fmt: function (v) { return v === null ? UFC.DASH : UFC.pct(v, 0); } },
+    { key: "la",  label: "Last bout", cls: "l", sort: "text", get: function (r) { return r.f.la; },
+      fmt: function (v) { return UFC.fmtDate(v); } }
+  ];
+
+  /* ------------------------------------------------------------- head row */
+  function buildHead() {
+    var tr = document.getElementById("dir-head");
+    tr.innerHTML = "";
+    COLS.forEach(function (c) {
+      var th = document.createElement("th");
+      th.className = (c.cls || "") + (c.sort ? " sortable" : "");
+      if (c.title) th.title = c.title;
+      if (c.sort) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = c.label;
+        b.setAttribute("aria-label", "Sort by " + c.label);
+        b.addEventListener("click", function () { setSort(c.key); });
+        th.appendChild(b);
+        if (sortKey === c.key) th.setAttribute("aria-sort", sortDir > 0 ? "ascending" : "descending");
+      } else {
+        th.textContent = c.label;
+      }
+      tr.appendChild(th);
+    });
+  }
+
+  function setSort(key) {
+    if (sortKey === key) sortDir = -sortDir;
+    else { sortKey = key; sortDir = (key === "n" || key === "la") ? 1 : -1; }
+    buildHead();
+    apply(true);
+  }
+
+  /* ------------------------------------------------------------- filtering */
+  function apply(keepPage) {
+    var q = document.getElementById("q").value.trim().toLowerCase();
+    var minf = +document.getElementById("minf").value;
+    var pricedOnly = document.getElementById("pricedonly").checked;
+
+    VIEW = ROWS.filter(function (r) {
+      if (r.f.nf < minf) return false;
+      if (pricedOnly && (r.f.favN + r.f.dogN) === 0) return false;
+      if (q && r.lower.indexOf(q) < 0) return false;
+      return true;
+    });
+
+    var col = null;
+    for (var i = 0; i < COLS.length; i++) if (COLS[i].key === sortKey) col = COLS[i];
+    if (col) {
+      VIEW.sort(function (a, b) {
+        var va = col.get(a), vb = col.get(b);
+        if (va === null || va === undefined) va = col.sort === "num" ? -Infinity : "";
+        if (vb === null || vb === undefined) vb = col.sort === "num" ? -Infinity : "";
+        if (va < vb) return -1 * sortDir;
+        if (va > vb) return 1 * sortDir;
+        return a.f.n < b.f.n ? -1 : 1;      /* stable-ish tiebreak by name */
+      });
+    }
+
+    if (!keepPage) page = 0;
+    document.getElementById("fc").textContent = VIEW.length.toLocaleString();
+    renderPage();
+  }
+
+  function renderPage() {
+    var tbody = document.getElementById("dir-tbody");
+    var totalPages = Math.max(1, Math.ceil(VIEW.length / PAGE_SIZE));
+    page = Math.min(Math.max(page, 0), totalPages - 1);
+    var start = page * PAGE_SIZE, end = Math.min(start + PAGE_SIZE, VIEW.length);
+    tbody.innerHTML = "";
+
+    if (!VIEW.length) {
+      var tr0 = document.createElement("tr");
+      var td0 = document.createElement("td");
+      td0.colSpan = COLS.length;
+      td0.className = "empty-state";
+      td0.textContent = "No fighter matches that filter.";
+      tr0.appendChild(td0);
+      tbody.appendChild(tr0);
+    }
+
+    for (var i = start; i < end; i++) {
+      var r = VIEW[i];
+      var tr = document.createElement("tr");
+      COLS.forEach(function (c) {
+        var td = document.createElement("td");
+        td.className = c.cls === "l" ? "l" : "mono";
+        var v = c.get(r);
+        if (c.key === "n") {
+          var a = document.createElement("a");
+          a.href = "fighter.html?id=" + r.f.i;
+          a.textContent = r.f.n;
+          td.appendChild(a);
+        } else {
+          var text = c.fmt ? c.fmt(v) : (v === null || v === undefined ? UFC.DASH : String(v));
+          td.textContent = text;
+          if (text === UFC.DASH) td.className += " dim";
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById("pg-label").textContent =
+      "Page " + (page + 1) + " of " + totalPages.toLocaleString() +
+      " · " + (VIEW.length ? (start + 1).toLocaleString() + "–" + end.toLocaleString() : "0") +
+      " of " + VIEW.length.toLocaleString();
+    document.getElementById("pg-prev").disabled = page <= 0;
+    document.getElementById("pg-first").disabled = page <= 0;
+    document.getElementById("pg-next").disabled = page >= totalPages - 1;
+    document.getElementById("pg-last").disabled = page >= totalPages - 1;
+  }
+
+  function go(delta, absolute) {
+    page = absolute === undefined ? page + delta : absolute;
+    if (absolute === -1) page = Math.ceil(VIEW.length / PAGE_SIZE) - 1;
+    renderPage();
+    var t = document.querySelector(".table-frozen");
+    if (t) t.scrollTop = 0;
+  }
+
+  document.getElementById("pg-prev").addEventListener("click", function () { go(-1); });
+  document.getElementById("pg-next").addEventListener("click", function () { go(1); });
+  document.getElementById("pg-first").addEventListener("click", function () { go(0, 0); });
+  document.getElementById("pg-last").addEventListener("click", function () { go(0, -1); });
+
+  ["q", "minf", "pricedonly"].forEach(function (id) {
+    var e = document.getElementById(id);
+    e.addEventListener(e.tagName === "INPUT" && e.type !== "checkbox" ? "input" : "change", function () { apply(false); });
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    document.getElementById("q").value = "";
+    document.getElementById("minf").value = "1";
+    document.getElementById("pricedonly").checked = false;
+    sortKey = "nf"; sortDir = -1;
+    buildHead();
+    apply(false);
+  });
+
+  UFC.nav("fighters");
+  buildHead();
+
+  UFC.load().then(function (data) {
+    DATA = data;
+    ROWS = data.fighters.map(function (f) {
+      return {
+        f: f,
+        lower: f.n.toLowerCase(),
+        fin: f.w ? (f.ko + f.sub) / f.w : null,
+        sig: f.sigA ? f.sigL / f.sigA : null,
+        td: f.tdA ? f.tdL / f.tdA : null,
+        favP: f.favN ? f.favW / f.favN : null,
+        dogP: f.dogN ? f.dogW / f.dogN : null
+      };
+    });
+    document.getElementById("hdr-count").textContent = data.fighters.length.toLocaleString();
+    document.getElementById("hdr-fights").textContent = data.fights.length.toLocaleString();
+    document.getElementById("hdr-through").textContent =
+      UFC.fmtDate(data.fights.length ? data.fights[data.fights.length - 1].d : null);
+    var cov = UFC.oddsCoverage;
+    document.getElementById("foot-coverage").textContent = cov
+      ? "Matched closing lines exist only between " + UFC.fmtDateLong(cov.from) + " and " +
+        UFC.fmtDateLong(cov.to) + " — " + cov.priced.toLocaleString() + " of " +
+        cov.total.toLocaleString() + " bouts are priced."
+      : "Odds coverage is partial.";
+    apply(false);
+  })["catch"](function (err) {
+    var tbody = document.getElementById("dir-tbody");
+    tbody.innerHTML = "";
+    var tr = document.createElement("tr"), td = document.createElement("td");
+    td.colSpan = COLS.length;
+    tbody.appendChild(tr); tr.appendChild(td);
+    UFC.loadError(td, err);
+    if (window.console) console.error(err);
+  });
+
+  window.addEventListener("ufc:repaint", function () { if (ROWS.length) renderPage(); });
+})();
+</script>
+</body>
+</html>

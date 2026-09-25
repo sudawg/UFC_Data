@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UFC_Data — fight results, closing odds and market analytics</title>
+<meta name="description" content="Every UFC bout since 1994 with results, per-fight statistics and consensus closing moneylines: fighter profiles, event cards, statistical leaderboards and a betting-market dashboard.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a8681a'/%3E%3Crect x='7' y='20' width='18' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  /* page-local layout only — everything visual comes from assets/site.css */
+  /* keep the headline from eating the whole row so the source note stays right */
+  header.top .inner > div:first-child{ flex:1 1 560px; min-width:0; }
+  header.top h1{ max-width: 24ch; }
+  header.top .source-note{ flex:0 0 auto; }
+  .hero-search{
+    display:flex; align-items:center; gap:10px; width:100%; max-width:560px;
+    margin-top:16px; padding:12px 14px; cursor:text; text-align:left;
+    background:var(--surface); color:var(--ink-muted);
+    border:1px solid var(--line-strong); border-radius:10px;
+    font:400 15px/1 system-ui,sans-serif; box-shadow:var(--shadow);
+  }
+  .hero-search:hover{ border-color:var(--ink-muted); }
+  .hero-search .mag{ font-size:16px; color:var(--ink-2); }
+  .hero-search .kb{ margin-left:auto; display:flex; gap:4px; }
+  .hero-search kbd{
+    font:600 10.5px/1 ui-monospace,Menlo,Consolas,monospace;
+    border:1px solid var(--line-strong); border-radius:4px; padding:3px 5px;
+    color:var(--ink-muted); background:var(--surface-2);
+  }
+
+  .tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+  a.tile{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px 18px; box-shadow:var(--shadow);
+  }
+  a.tile:hover{ border-color:var(--ink-muted); }
+  a.tile .t{ font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  a.tile .t .arrow{ color:var(--accent); }
+  a.tile .d{ font-size:12.5px; color:var(--ink-2); margin-top:6px; line-height:1.45; }
+  a.tile .n{ font-family:ui-monospace,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;
+             font-size:11.5px; color:var(--ink-muted); margin-top:9px; display:block; }
+
+  .cards3{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  /* min-width:0 stops the nowrap table inside from setting the track's floor —
+     without it the grid item refuses to shrink and the page scrolls sideways */
+  .cards3 > .card{ min-width:0; }
+  @media (max-width:980px){ .cards3{ grid-template-columns:1fr; } }
+  .evhead{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .evhead .when{ font-size:11.5px; color:var(--ink-muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .evhead h3 a{ color:var(--ink); text-decoration:none; }
+  .evhead h3 a:hover{ color:var(--series-1); }
+  .two > span{ display:block; line-height:18px; }
+  .two .corner-b{ color:var(--ink-2); }
+  .mini-names{ min-width:0; }
+  .mini-names .nm{ display:flex; align-items:center; gap:6px; line-height:18px; }
+  .mini-names .nm a{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px; display:inline-block; }
+  .mini-names .nm.winner a{ font-weight:700; }
+  table.odds tbody td.tight{ padding:5px 8px; }
+  .cardfoot{ display:flex; justify-content:space-between; align-items:center; gap:10px;
+             margin-top:10px; font-size:11.5px; color:var(--ink-muted); }
+  .cardfoot a{ color:var(--series-1); text-decoration:none; font-weight:600; }
+  .cardfoot a:hover{ text-decoration:underline; }
+  .coverage ul{ margin:8px 0 0; padding-left:18px; font-size:13px; color:var(--ink-2); }
+  .coverage li{ margin:4px 0; }
+  .coverage .mono{ color:var(--ink); }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="kicker">UFC_Data</p>
+      <h1>Every UFC fight, with the price the market put on it.</h1>
+      <p class="sub">Results, per-fight statistics and consensus closing moneylines for the whole promotion —
+        scraped weekly, rebuilt into a static site with no tracking, no accounts and no server.</p>
+      <button class="hero-search" type="button" id="hero-search"
+              aria-label="Search fighters and events">
+        <span class="mag" aria-hidden="true">⌕</span>
+        <span>Search <span id="hs-n">–</span> fighters and <span id="hs-e">–</span> events…</span>
+        <span class="kb" aria-hidden="true"><kbd>/</kbd></span>
+      </button>
+    </div>
+    <div class="source-note">
+      Data generated <span id="hdr-generated">–</span><br>
+      Results <span id="hdr-span">–</span> · odds <span id="hdr-oddsspan">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+  <h2 class="section-title">The database</h2>
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi"><div class="lbl">Loading…</div><div class="val">–</div></div>
+  </div>
+
+  <h2 class="section-title">Most recent cards</h2>
+  <p class="section-desc" id="recent-desc">The three latest events in the database. There are no upcoming fights
+    here — this is a historical archive, so the newest card is the last one the scraper picked up.</p>
+  <div class="cards3" id="recent-cards">
+    <div class="card"><div class="empty-state">Loading recent cards…</div></div>
+  </div>
+
+  <h2 class="section-title">Explore</h2>
+  <div class="tiles" id="tiles"></div>
+
+  <h2 class="section-title">What this data is — and is not</h2>
+  <div class="card coverage">
+    <h3>Coverage and caveats</h3>
+    <p class="cardnote">Read this before drawing conclusions from anything on the site.</p>
+    <ul id="coverage-list">
+      <li id="cov-results">–</li>
+      <li id="cov-odds">–</li>
+      <li><b>One consensus closing price per fighter.</b> There is no per-sportsbook breakdown, no opening line
+        and no line-movement history in this data — a single closing number per corner is all there is.
+        Anything that would need line movement (steam, CLV, book-to-book arbitrage) cannot be computed here.</li>
+      <li>Implied probabilities are the raw single-side conversion of the American price, so the two corners of a
+        bout sum to more than 100%. That excess is the book's overround, not an edge.</li>
+      <li>Per-fight statistics come from the official scorecards. Cards before roughly 2001 often carry partial or
+        zero strike counts, which drags early accuracy figures toward zero.</li>
+    </ul>
+  </div>
+
+  <footer>
+    <strong>About.</strong> Built from three CSVs the scraper maintains in the repository:
+    <code>Data/fight_data.csv</code> (cleaned per-fight statistics), <code>Data/fight_data_raw.csv</code>
+    (raw scrape — weight class, referee, title status, finish time) and <code>Data/moneyline.csv</code>
+    (historical closing moneylines). The JSON feeds behind these pages are rebuilt from those files by
+    <code>scripts/build_site_data.py</code>; every number on the site is derived at page load, in your browser.
+    <ul>
+      <li id="foot-counts">–</li>
+      <li>No external scripts, fonts, trackers or CDN requests: each page is a single self-contained HTML file
+        plus one shared stylesheet and one shared script.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DATA = null;
+
+  document.getElementById("hero-search").addEventListener("click", function () { UFC.search(); });
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function priced(f) { return f.oa !== null && f.oa !== undefined && f.ob !== null && f.ob !== undefined; }
+
+  /* -------------------------------------------------------------- KPI strip */
+  function renderKpis() {
+    var fights = DATA.fights, events = DATA.events;
+    var nPriced = 0;
+    fights.forEach(function (f) { if (priced(f)) nPriced++; });
+    var first = fights.length ? fights[0].d : null;
+    var last = fights.length ? fights[fights.length - 1].d : null;
+    var cov = UFC.oddsCoverage;
+
+    var tiles = [
+      { lbl: "Fights", val: fights.length.toLocaleString(),
+        foot: "one row per bout, both corners" },
+      { lbl: "Fighters", val: DATA.fighters.length.toLocaleString(),
+        foot: "everyone with at least one bout" },
+      { lbl: "Events", val: events.length.toLocaleString(),
+        foot: "cards from UFC 2 onward" },
+      { lbl: "Date span", val: UFC.year(first) + "–" + UFC.year(last), cls: "sm",
+        foot: UFC.fmtDate(first) + " → " + UFC.fmtDate(last) },
+      { lbl: "With closing odds", val: nPriced.toLocaleString(),
+        foot: UFC.pct(nPriced / fights.length, 1) + " of all fights" },
+      { lbl: "Referees", val: DATA.referees.length.toLocaleString(),
+        foot: "named officials on record" }
+    ];
+    var row = document.getElementById("kpi-row");
+    row.innerHTML = "";
+    tiles.forEach(function (t) {
+      var d = document.createElement("div");
+      d.className = "kpi";
+      d.innerHTML = '<div class="lbl">' + t.lbl + '</div>' +
+        '<div class="val' + (t.cls ? " " + t.cls : "") + '">' + t.val + '</div>' +
+        '<div class="foot">' + t.foot + '</div>';
+      row.appendChild(d);
+    });
+
+    document.getElementById("hs-n").textContent = DATA.fighters.length.toLocaleString();
+    document.getElementById("hs-e").textContent = DATA.events.length.toLocaleString();
+    document.getElementById("hdr-generated").textContent = UFC.fmtDate(DATA.generated);
+    document.getElementById("hdr-span").textContent = UFC.year(first) + "–" + UFC.year(last);
+    document.getElementById("hdr-oddsspan").textContent =
+      cov ? UFC.year(cov.from) + "–" + UFC.year(cov.to) : "unknown";
+
+    document.getElementById("cov-results").innerHTML =
+      "<b>Fight results run " + UFC.fmtDateLong(first) + " to " + UFC.fmtDateLong(last) + ".</b> " +
+      fights.length.toLocaleString() + " bouts across " + events.length.toLocaleString() +
+      " cards, complete for the whole period.";
+    document.getElementById("cov-odds").innerHTML = cov
+      ? "<b>Closing odds only run " + UFC.fmtDateLong(cov.from) + " to " + UFC.fmtDateLong(cov.to) + ".</b> " +
+        nPriced.toLocaleString() + " of " + fights.length.toLocaleString() + " fights (" +
+        UFC.pct(nPriced / fights.length, 1) + ") carry a matched price. Everything before, after — and a " +
+        "minority inside — that window shows <span class=\"mono\">—</span>, never an estimate."
+      : "Odds coverage is partial.";
+    document.getElementById("foot-counts").textContent =
+      "This build: " + fights.length.toLocaleString() + " fights · " +
+      DATA.fighters.length.toLocaleString() + " fighters · " + events.length.toLocaleString() +
+      " events · " + nPriced.toLocaleString() + " priced bouts · generated " + UFC.fmtDate(DATA.generated) + ".";
+  }
+
+  /* --------------------------------------------------------- recent cards */
+  var ROWS_PER_CARD = 6;
+
+  function nameLine(fighter, res, isWinner) {
+    var d = document.createElement("span");
+    d.className = "nm" + (isWinner ? " winner" : "");
+    var pill = document.createElement("span");
+    pill.className = "pill " + (res === "W" ? "win" : res === "L" ? "loss" : res === "D" ? "draw" : "nc");
+    pill.textContent = res;
+    var a = document.createElement("a");
+    a.href = "fighter.html?id=" + fighter.i;
+    a.textContent = fighter.n;
+    a.title = fighter.n + " — " + UFC.record(fighter);
+    d.appendChild(pill);
+    d.appendChild(a);
+    return d;
+  }
+
+  function renderRecent() {
+    var host = document.getElementById("recent-cards");
+    host.innerHTML = "";
+
+    var byEvent = {};
+    DATA.fights.forEach(function (f) {
+      if (!byEvent[f.e]) byEvent[f.e] = [];
+      byEvent[f.e].push(f);
+    });
+
+    var recent = DATA.events.slice(-3).reverse();
+    recent.forEach(function (ev) {
+      var bouts = (byEvent[ev.i] || []).slice().sort(function (a, b) { return a.o - b.o; });
+      var shown = bouts.slice(0, ROWS_PER_CARD);
+      var nPriced = 0;
+      bouts.forEach(function (f) { if (priced(f)) nPriced++; });
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.style.padding = "16px 14px 12px";
+
+      var head = document.createElement("div");
+      head.className = "evhead";
+      head.innerHTML = '<h3 style="margin:0"><a href="event.html?id=' + ev.i + '">' + escapeHtml(ev.n) + '</a></h3>' +
+        '<span class="when">' + UFC.fmtDate(ev.d) + '</span>';
+      card.appendChild(head);
+
+      var note = document.createElement("p");
+      note.className = "cardnote";
+      note.style.margin = "6px 0 10px";
+      note.textContent = bouts.length + " bouts · " +
+        (nPriced ? nPriced + " with a closing line" : "no closing lines on record");
+      card.appendChild(note);
+
+      var wrap = document.createElement("div");
+      wrap.className = "table-frozen";
+      var tbl = document.createElement("table");
+      tbl.className = "odds";
+      tbl.innerHTML = '<caption class="visually-hidden">Top bouts on ' + escapeHtml(ev.n) + '</caption>' +
+        '<thead><tr><th class="l" scope="col">Bout</th><th scope="col">Odds</th>' +
+        '<th class="l" scope="col">Method</th></tr></thead>';
+      var tb = document.createElement("tbody");
+
+      shown.forEach(function (f) {
+        var A = DATA.fighters[f.a], B = DATA.fighters[f.b];
+        var has = priced(f);
+        var resA = f.w === "D" ? "D" : f.w === "N" ? "NC" : (f.w === "a" ? "W" : "L");
+        var resB = f.w === "D" ? "D" : f.w === "N" ? "NC" : (f.w === "b" ? "W" : "L");
+
+        var tr = document.createElement("tr");
+        var tdN = document.createElement("td");
+        tdN.className = "l tight";
+        var box = document.createElement("div");
+        box.className = "mini-names";
+        box.appendChild(nameLine(A, resA, f.w === "a"));
+        box.appendChild(nameLine(B, resB, f.w === "b"));
+        tdN.appendChild(box);
+        if (f.t > 0) {
+          var tp = document.createElement("span");
+          tp.className = "pill title";
+          tp.textContent = f.t === 2 ? "INTERIM" : "TITLE";
+          tdN.appendChild(tp);
+        }
+        tr.appendChild(tdN);
+
+        var tdO = document.createElement("td");
+        tdO.className = "mono two tight" + (has ? "" : " dim");
+        var o1 = document.createElement("span");
+        o1.textContent = has ? UFC.odds(f.oa) : UFC.DASH;
+        var o2 = document.createElement("span");
+        o2.className = "corner-b";
+        o2.textContent = has ? UFC.odds(f.ob) : UFC.DASH;
+        tdO.appendChild(o1); tdO.appendChild(o2);
+        if (!has) tdO.title = UFC.ODDS_COVERAGE_NOTE;
+        tr.appendChild(tdO);
+
+        var tdM = document.createElement("td");
+        tdM.className = "l tight";
+        tdM.textContent = (f.m || UFC.DASH).replace(/^Decision - /, "Dec. ") + (f.r ? " · R" + f.r : "");
+        tr.appendChild(tdM);
+
+        tb.appendChild(tr);
+      });
+
+      tbl.appendChild(tb);
+      wrap.appendChild(tbl);
+      card.appendChild(wrap);
+
+      var foot = document.createElement("div");
+      foot.className = "cardfoot";
+      foot.innerHTML = '<span>' + (bouts.length > shown.length
+          ? "Showing the top " + shown.length + " of " + bouts.length + " bouts"
+          : "Full card shown") + '</span>' +
+        '<a href="event.html?id=' + ev.i + '">Full card &amp; statistics →</a>';
+      card.appendChild(foot);
+
+      host.appendChild(card);
+    });
+
+    var newest = DATA.events[DATA.events.length - 1];
+    document.getElementById("recent-desc").textContent =
+      "The three latest cards in the database, ending with " + newest.n + " on " +
+      UFC.fmtDateLong(newest.d) + ". There are no upcoming fights here — this is a historical archive, " +
+      "so the newest card is the last one the scraper picked up.";
+  }
+
+  /* ---------------------------------------------------------------- tiles */
+  function renderTiles() {
+    var nPriced = 0;
+    DATA.fights.forEach(function (f) { if (priced(f)) nPriced++; });
+
+    var items = [
+      { href: "fighters.html", t: "Fighter directory",
+        d: "Records, finish rates, striking and takedown accuracy, and how often the market made each fighter the favourite. Sortable and filterable.",
+        n: DATA.fighters.length.toLocaleString() + " fighters" },
+      { href: "events.html", t: "Event archive",
+        d: "Every card, newest first, with its main event and how much of it carries a closing line. Opens the full bout-by-bout breakdown.",
+        n: DATA.events.length.toLocaleString() + " events" },
+      { href: "betting.html", t: "Odds dashboard",
+        d: "How well the closing line predicted the result: favourite win rates, calibration by price band, flat-stake ROI and year-by-year drift.",
+        n: nPriced.toLocaleString() + " priced fights" },
+      { href: "leaderboards.html", t: "Leaderboards",
+        d: "Statistical leaders — wins, finishes, knockdowns, accuracy, takedowns, submission attempts, the biggest upsets and the busiest referees.",
+        n: "10 boards · top 15 each" }
+    ];
+    var host = document.getElementById("tiles");
+    host.innerHTML = "";
+    items.forEach(function (it) {
+      var a = document.createElement("a");
+      a.className = "tile";
+      a.href = it.href;
+      a.innerHTML = '<span class="t">' + it.t + ' <span class="arrow" aria-hidden="true">→</span></span>' +
+        '<span class="d">' + it.d + '</span>' +
+        '<span class="n">' + it.n + '</span>';
+      host.appendChild(a);
+    });
+  }
+
+  /* ------------------------------------------------------------ orchestrate */
+  UFC.nav("home");
+
+  UFC.load().then(function (data) {
+    DATA = data;
+    renderKpis();
+    renderRecent();
+    renderTiles();
+  })["catch"](function (err) {
+    UFC.loadError(document.getElementById("recent-cards"), err);
+    document.getElementById("kpi-row").innerHTML = "";
+    if (window.console) console.error(err);
+  });
+
+  window.addEventListener("ufc:repaint", function () { if (DATA) renderRecent(); });
+})();
+</script>
+</body>
+</html>

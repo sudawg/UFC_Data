@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event archive · UFC_Data</title>
+<meta name="description" content="Every UFC card in the database, newest first: date, bout count, main event and how many bouts carry a matched closing line.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a8681a'/%3E%3Crect x='7' y='20' width='18' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/app.js"></script>
+<style>
+  /* page-local layout only — everything visual comes from assets/site.css */
+  .toolbar{
+    position: sticky; top: 46px; z-index: 20;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar .inner{
+    max-width: 1180px; margin: 0 auto; padding: 10px 20px;
+    display:flex; flex-wrap:wrap; align-items:center; gap: 10px 16px;
+  }
+  .toolbar label{ font-size:12px; font-weight:600; color: var(--ink-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .toolbar input.txt{ min-width: 260px; }
+  .toolbar .grp{ display:flex; align-items:center; gap:8px; }
+  .toolbar .count{ margin-left:auto; font-size:12.5px; color: var(--ink-muted); }
+  .toolbar .count b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+  .chk{ display:flex; align-items:center; gap:6px; font-size:12.5px; color: var(--ink-2); text-transform:none; letter-spacing:0; font-weight:500; }
+  @media (max-width: 720px){ .toolbar{ position: static; } .toolbar input.txt{ min-width: 0; flex:1; } }
+  .main-ev .vs{ color: var(--ink-muted); padding: 0 5px; }
+  td.ev-name a{ font-weight:600; }
+  .yearchips{ display:flex; flex-wrap:wrap; gap:5px; margin: 14px 2px 0; }
+  .yearchips button{
+    font: 600 11.5px/1 ui-monospace, Menlo, Consolas, monospace;
+    background: transparent; color: var(--ink-muted);
+    border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 7px; cursor: pointer;
+  }
+  .yearchips button:hover{ color: var(--ink); border-color: var(--ink-muted); }
+  .yearchips button[aria-pressed="true"]{ background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+</style>
+</head>
+<body>
+
+<div id="sitenav-slot"></div>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="kicker">UFC_Data · Archive</p>
+      <h1>Event archive</h1>
+      <p class="sub">Every card in the database, newest first. Filter by name or year, then open a card for the
+        full bout-by-bout breakdown with closing odds and fight statistics.</p>
+    </div>
+    <div class="source-note">
+      <span id="hdr-count">–</span> events<br>
+      <span id="hdr-fights">–</span> bouts · <span id="hdr-span">–</span>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="inner">
+    <div class="grp">
+      <label for="q">Filter</label>
+      <input class="txt" type="search" id="q" placeholder="Type an event or fighter name…" autocomplete="off"
+             spellcheck="false" aria-label="Filter events by event name or main-event fighter">
+    </div>
+    <div class="grp">
+      <label for="yr">Year</label>
+      <select id="yr" aria-label="Filter events by year">
+        <option value="">All years</option>
+      </select>
+    </div>
+    <label class="chk"><input type="checkbox" id="pricedonly"> Only cards with closing lines</label>
+    <label class="chk"><input type="checkbox" id="titleonly"> Only cards with a title bout</label>
+    <button class="reset-btn" type="button" id="reset">Reset</button>
+    <span class="count"><b id="ec">–</b> shown</span>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="card" style="margin-top:22px; padding:14px 14px 10px">
+    <div class="table-frozen table-frozen--y">
+      <table class="odds" id="ev-table">
+        <thead>
+          <tr id="ev-head"></tr>
+        </thead>
+        <tbody id="ev-tbody">
+          <tr><td colspan="6" class="empty-state">Loading events…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="pg-first" type="button" aria-label="First page">&laquo;</button>
+      <button id="pg-prev" type="button">&larr; Prev</button>
+      <span id="pg-label" aria-live="polite">Page 1</span>
+      <button id="pg-next" type="button">Next &rarr;</button>
+      <button id="pg-last" type="button" aria-label="Last page">&raquo;</button>
+    </div>
+  </div>
+
+  <h2 class="section-title">Jump to a year</h2>
+  <div class="yearchips" id="yearchips" role="group" aria-label="Filter events by year"></div>
+
+  <footer>
+    <strong>Reading this table.</strong> “Priced” counts the bouts on a card with a matched closing moneyline;
+    a card can be partially priced. The main event is the first bout in card order.
+    <ul>
+      <li id="foot-coverage">–</li>
+      <li id="foot-names">–</li>
+      <li>Bout order is reconstructed from the scrape order within a card, so the “main event” is the headline
+        bout rather than a broadcast running order.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAGE_SIZE = 50;
+  var DATA = null, ROWS = [], VIEW = [], page = 0;
+  var sortKey = "d", sortDir = -1;   /* newest first */
+
+  var COLS = [
+    { key: "d",  label: "Date", cls: "l", sort: "text", get: function (r) { return r.e.d; },
+      fmt: function (v) { return UFC.fmtDate(v); } },
+    { key: "n",  label: "Event", cls: "l", sort: "text", get: function (r) { return r.e.n; } },
+    { key: "nf", label: "Bouts", sort: "num", get: function (r) { return r.e.nf; } },
+    { key: "pr", label: "Priced", sort: "num", get: function (r) { return r.priced; },
+      title: "Bouts on this card with a matched closing moneyline" },
+    { key: "me", label: "Main event", cls: "l", sort: null, get: function (r) { return r.main; } },
+    { key: "mm", label: "Result", cls: "l", sort: null, get: function (r) { return r.main; } }
+  ];
+
+  /* ------------------------------------------------------------- head row */
+  function buildHead() {
+    var tr = document.getElementById("ev-head");
+    tr.innerHTML = "";
+    COLS.forEach(function (c) {
+      var th = document.createElement("th");
+      th.className = (c.cls || "") + (c.sort ? " sortable" : "");
+      th.scope = "col";
+      if (c.title) th.title = c.title;
+      if (c.sort) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = c.label;
+        b.setAttribute("aria-label", "Sort by " + c.label);
+        b.addEventListener("click", function () { setSort(c.key); });
+        th.appendChild(b);
+        if (sortKey === c.key) th.setAttribute("aria-sort", sortDir > 0 ? "ascending" : "descending");
+      } else {
+        th.textContent = c.label;
+      }
+      tr.appendChild(th);
+    });
+  }
+
+  function setSort(key) {
+    if (sortKey === key) sortDir = -sortDir;
+    else { sortKey = key; sortDir = key === "n" ? 1 : -1; }
+    buildHead();
+    apply(true);
+  }
+
+  /* ------------------------------------------------------------- filtering */
+  function apply(keepPage) {
+    var q = document.getElementById("q").value.trim().toLowerCase();
+    var yr = document.getElementById("yr").value;
+    var pricedOnly = document.getElementById("pricedonly").checked;
+    var titleOnly = document.getElementById("titleonly").checked;
+
+    VIEW = ROWS.filter(function (r) {
+      if (yr && r.e.d.slice(0, 4) !== yr) return false;
+      if (pricedOnly && !r.priced) return false;
+      if (titleOnly && !r.titles) return false;
+      if (q && r.lower.indexOf(q) < 0) return false;
+      return true;
+    });
+
+    var col = null;
+    for (var i = 0; i < COLS.length; i++) if (COLS[i].key === sortKey) col = COLS[i];
+    if (col && col.sort) {
+      VIEW.sort(function (a, b) {
+        var va = col.get(a), vb = col.get(b);
+        if (va < vb) return -1 * sortDir;
+        if (va > vb) return 1 * sortDir;
+        return b.e.d < a.e.d ? -1 : 1;
+      });
+    }
+
+    if (!keepPage) page = 0;
+    document.getElementById("ec").textContent = VIEW.length.toLocaleString();
+    syncYearChips(yr);
+    renderPage();
+  }
+
+  function fighterLink(f) {
+    var a = document.createElement("a");
+    a.href = "fighter.html?id=" + f.i;
+    a.textContent = f.n;
+    return a;
+  }
+
+  function renderPage() {
+    var tbody = document.getElementById("ev-tbody");
+    var totalPages = Math.max(1, Math.ceil(VIEW.length / PAGE_SIZE));
+    page = Math.min(Math.max(page, 0), totalPages - 1);
+    var start = page * PAGE_SIZE, end = Math.min(start + PAGE_SIZE, VIEW.length);
+    tbody.innerHTML = "";
+
+    if (!VIEW.length) {
+      var tr0 = document.createElement("tr");
+      var td0 = document.createElement("td");
+      td0.colSpan = COLS.length;
+      td0.className = "empty-state";
+      td0.textContent = "No event matches that filter.";
+      tr0.appendChild(td0);
+      tbody.appendChild(tr0);
+    }
+
+    for (var i = start; i < end; i++) {
+      var r = VIEW[i];
+      var tr = document.createElement("tr");
+
+      /* date (frozen column) */
+      var tdD = document.createElement("td");
+      tdD.className = "l mono";
+      tdD.textContent = UFC.fmtDate(r.e.d);
+      tr.appendChild(tdD);
+
+      /* event name -> event page */
+      var tdN = document.createElement("td");
+      tdN.className = "l ev-name";
+      var a = document.createElement("a");
+      a.href = "event.html?id=" + r.e.i;
+      a.textContent = r.e.n;
+      a.title = r.e.n + " · " + UFC.fmtDate(r.e.d) + " · " + r.e.nf + " bouts";
+      tdN.appendChild(a);
+      if (r.titles) {
+        var tp = document.createElement("span");
+        tp.className = "pill title";
+        tp.style.marginLeft = "6px";
+        tp.textContent = r.titles === 1 ? "TITLE" : r.titles + " TITLE";
+        tp.title = r.titles + " championship bout" + (r.titles === 1 ? "" : "s") + " on this card";
+        tdN.appendChild(tp);
+      }
+      tr.appendChild(tdN);
+
+      tr.appendChild(UFC.td(String(r.e.nf), "mono"));
+
+      var tdP = document.createElement("td");
+      tdP.className = "mono" + (r.priced ? "" : " dim");
+      tdP.textContent = r.priced ? r.priced + " / " + r.e.nf : UFC.DASH;
+      if (!r.priced) tdP.title = UFC.ODDS_COVERAGE_NOTE;
+      tr.appendChild(tdP);
+
+      /* main event: both fighters linked */
+      var tdM = document.createElement("td");
+      tdM.className = "l main-ev";
+      if (r.main) {
+        tdM.appendChild(fighterLink(DATA.fighters[r.main.a]));
+        var vs = document.createElement("span");
+        vs.className = "vs";
+        vs.textContent = "vs";
+        tdM.appendChild(vs);
+        tdM.appendChild(fighterLink(DATA.fighters[r.main.b]));
+      } else {
+        tdM.textContent = UFC.DASH;
+      }
+      tr.appendChild(tdM);
+
+      /* main-event result */
+      var tdR = document.createElement("td");
+      tdR.className = "l";
+      if (r.main) {
+        var f = r.main;
+        var winner = f.w === "a" ? DATA.fighters[f.a] : f.w === "b" ? DATA.fighters[f.b] : null;
+        tdR.textContent = winner
+          ? winner.n.split(" ").slice(-1)[0] + " · " + f.m + (f.r ? " (R" + f.r + " " + f.tm + ")" : "")
+          : (f.w === "D" ? "Draw · " : "No contest · ") + f.m;
+      } else {
+        tdR.textContent = UFC.DASH;
+      }
+      tr.appendChild(tdR);
+
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById("pg-label").textContent =
+      "Page " + (page + 1) + " of " + totalPages.toLocaleString() +
+      " · " + (VIEW.length ? (start + 1).toLocaleString() + "–" + end.toLocaleString() : "0") +
+      " of " + VIEW.length.toLocaleString();
+    document.getElementById("pg-prev").disabled = page <= 0;
+    document.getElementById("pg-first").disabled = page <= 0;
+    document.getElementById("pg-next").disabled = page >= totalPages - 1;
+    document.getElementById("pg-last").disabled = page >= totalPages - 1;
+  }
+
+  function go(delta, absolute) {
+    page = absolute === undefined ? page + delta : absolute;
+    if (absolute === -1) page = Math.ceil(VIEW.length / PAGE_SIZE) - 1;
+    renderPage();
+    var t = document.querySelector(".table-frozen");
+    if (t) t.scrollTop = 0;
+  }
+
+  document.getElementById("pg-prev").addEventListener("click", function () { go(-1); });
+  document.getElementById("pg-next").addEventListener("click", function () { go(1); });
+  document.getElementById("pg-first").addEventListener("click", function () { go(0, 0); });
+  document.getElementById("pg-last").addEventListener("click", function () { go(0, -1); });
+
+  ["q", "yr", "pricedonly", "titleonly"].forEach(function (id) {
+    var e = document.getElementById(id);
+    e.addEventListener(e.tagName === "INPUT" && e.type !== "checkbox" ? "input" : "change", function () { apply(false); });
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    document.getElementById("q").value = "";
+    document.getElementById("yr").value = "";
+    document.getElementById("pricedonly").checked = false;
+    document.getElementById("titleonly").checked = false;
+    sortKey = "d"; sortDir = -1;
+    buildHead();
+    apply(false);
+  });
+
+  /* ------------------------------------------------------------ year chips */
+  function buildYears(years) {
+    var sel = document.getElementById("yr");
+    var chips = document.getElementById("yearchips");
+    years.forEach(function (y) {
+      var o = document.createElement("option");
+      o.value = String(y); o.textContent = String(y);
+      sel.appendChild(o);
+
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = String(y);
+      b.setAttribute("aria-pressed", "false");
+      b.dataset.year = String(y);
+      b.addEventListener("click", function () {
+        var cur = document.getElementById("yr").value;
+        document.getElementById("yr").value = cur === String(y) ? "" : String(y);
+        apply(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      chips.appendChild(b);
+    });
+  }
+  function syncYearChips(active) {
+    var chips = document.getElementById("yearchips").children;
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].setAttribute("aria-pressed", chips[i].dataset.year === active ? "true" : "false");
+    }
+  }
+
+  /* ------------------------------------------------------------ orchestrate */
+  UFC.nav("events");
+  buildHead();
+
+  UFC.load().then(function (data) {
+    DATA = data;
+
+    /* per-event roll-up: main event, priced bouts, title bouts */
+    var main = {}, priced = {}, titles = {};
+    data.fights.forEach(function (f) {
+      if (!main[f.e] || f.o < main[f.e].o) main[f.e] = f;
+      if (f.oa !== null && f.oa !== undefined && f.ob !== null && f.ob !== undefined) {
+        priced[f.e] = (priced[f.e] || 0) + 1;
+      }
+      if (f.t > 0) titles[f.e] = (titles[f.e] || 0) + 1;
+    });
+
+    ROWS = data.events.map(function (e) {
+      var m = main[e.i] || null;
+      var names = m ? (data.fighters[m.a].n + " " + data.fighters[m.b].n) : "";
+      return {
+        e: e, main: m,
+        priced: priced[e.i] || 0,
+        titles: titles[e.i] || 0,
+        lower: (e.n + " " + names).toLowerCase()
+      };
+    });
+
+    var years = {};
+    data.events.forEach(function (e) { years[e.d.slice(0, 4)] = 1; });
+    buildYears(Object.keys(years).sort().reverse());
+
+    document.getElementById("hdr-count").textContent = data.events.length.toLocaleString();
+    document.getElementById("hdr-fights").textContent = data.fights.length.toLocaleString();
+    document.getElementById("hdr-span").textContent = data.events.length
+      ? UFC.fmtDate(data.events[0].d) + " – " + UFC.fmtDate(data.events[data.events.length - 1].d)
+      : "–";
+
+    var cov = UFC.oddsCoverage;
+    document.getElementById("foot-coverage").textContent = cov
+      ? "Matched closing lines exist only between " + UFC.fmtDateLong(cov.from) + " and " +
+        UFC.fmtDateLong(cov.to) + " — " + cov.priced.toLocaleString() + " of " +
+        cov.total.toLocaleString() + " bouts are priced, so most cards outside that window show — in the priced column."
+      : "Odds coverage is partial.";
+
+    /* the fallback label build_site_data.py generates is exactly "<lastname> vs <lastname>" */
+    var fallback = ROWS.filter(function (r) { return /^\S+ vs \S+$/.test(r.e.n); }).length;
+    document.getElementById("foot-names").textContent =
+      "Official card names are only available for events that appear in the moneyline file. " +
+      fallback.toLocaleString() + " of " + ROWS.length.toLocaleString() +
+      " events fall back to a “Main-eventer vs Main-eventer” label derived from the headline bout.";
+
+    apply(false);
+  })["catch"](function (err) {
+    var tbody = document.getElementById("ev-tbody");
+    tbody.innerHTML = "";
+    var tr = document.createElement("tr"), td = document.createElement("td");
+    td.colSpan = COLS.length;
+    tbody.appendChild(tr); tr.appendChild(td);
+    UFC.loadError(td, err);
+    if (window.console) console.error(err);
+  });
+
+  window.addEventListener("ufc:repaint", function () { if (ROWS.length) renderPage(); });
+})();
+</script>
+</body>
+</html>
